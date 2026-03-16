@@ -422,8 +422,8 @@ def parse_verilog():
 parse_verilog()
 
 gen_pe_io_out_d_pointers() # OS only
-#gen_pe_c1_c2_pointers()
-gen_pe_c1_c2_pointers_ft()
+gen_pe_c1_c2_pointers()
+#gen_pe_c1_c2_pointers_ft()
 
 gen_mesh_pointers()
 
