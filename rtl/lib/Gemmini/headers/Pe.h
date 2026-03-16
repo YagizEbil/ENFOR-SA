@@ -77,7 +77,7 @@ public:
 
     Output_t getOutput()
     {
-    #if GEMM_OS // this will be the MAC unit output. this is currenlty pointing to pe_io_out, so that we can inject in the same part HDFIT does
+    #ifdef GEMM_OS // this will be the MAC unit output. this is currenlty pointing to pe_io_out, so that we can inject in the same part HDFIT does
         return *(Output_t*)ptr_out_c;
     #else // This will the the partial sum passed to downstream PEs
         return *(Output_t*)ptr_out_b;
@@ -86,7 +86,7 @@ public:
 
     void setMacOut (Output_t data)
     {  
-    #if GEMM_OS
+    #ifdef GEMM_OS
         *(Output_t*)ptr_out_c = data;
     #else
         *(Output_t*)ptr_out_b = data;

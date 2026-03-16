@@ -29,7 +29,7 @@ import src.definitions as defs
 # OS configs
 #
 #CONFIG_KEY = "OSDIM4"
-#CONFIG_KEY = "OSDIM8"
+CONFIG_KEY = "OSDIM8"
 #CONFIG_KEY = "OSDIM16"
 #CONFIG_KEY = "OSDIM32"
 #CONFIG_KEY = "OSDIM64"
@@ -47,7 +47,7 @@ import src.definitions as defs
 # WS configs
 #
 #CONFIG_KEY = "WSDIM4"
-CONFIG_KEY = "WSDIM8"
+#CONFIG_KEY = "WSDIM8"
 
 #
 # Loads the Gemmini module - the ahead-of-time extension to interface with the verilated Gemmini module (this lib is designed in /rtl/lib/Gemmini)
@@ -305,7 +305,14 @@ class TesterGemmini(unittest.TestCase):
                 #self.D.random_(MIN_INT, MAX_INT)
 
                 gemmini.clear_fault_list()
-                gemmini.add_transient_fault(target, row, col, bit, cell, fiSilent) 
+                gemmini.add_transient_fault(
+                    target, 
+                    row, 
+                    col, 
+                    bit, 
+                    cell, 
+                    fiSilent) 
+                
                 #gemmini.add_permanent_fault(target, row, col, bit, pol, cell, False) # Important: for permanents, one must clear the fault list for the next tests...
 
                 C_gold = torch.mm(self.A, self.B) + self.D

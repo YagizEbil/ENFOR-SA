@@ -65,5 +65,5 @@ done
 # Generates the app profile. Run this line, and then "cd ./profiler" and "./gen-svg.sh" (the svg output will be saved in profiler/svg)
 #
 #for ((i=0; i<${#models[@]}; i++)); do
-  #./scripts/run/prof.sh "${models[i]}" "${used_layers[@]}"
+#  ./scripts/run/prof.sh "${models[i]}" "${used_layers[@]}"
 #done

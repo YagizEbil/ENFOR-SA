@@ -16,7 +16,7 @@ For fault injection tests, you will also need a copy of the validation set of [I
 
 ### Install verilator (only if needed)
 Verilator is only necessary if you need to:
-- Integrate new Gemmini configs with the framework;
+- Integrate new Gemmini configs to the framework;
 - Recompile the verilated systolic array code for your machine.
 Some array configs are already provided in [rtl/designs](rtl/designs). These configs are already compiled in [rtl/verilated](rtl/verilated). 
 

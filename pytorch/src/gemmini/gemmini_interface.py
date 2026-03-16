@@ -209,10 +209,10 @@ class GemminiWS(Gemmini):
     def tiled_matmul(self, A, B, D=None): # TODO: WS only supports streaming sizes the same size of the SA
         assert(len(A.shape) == 2)
         assert(len(B.shape) == 2)
-        assert(len(D.shape) == 2)
         assert(A.shape[1] == B.shape[0])
 
         if D != None:
+            assert(len(D.shape) == 2)
             assert(D.shape == (A.shape[0], B.shape[1]))
 
         I, K = A.shape

@@ -29,16 +29,18 @@ from src.models.base_model import BaseModel
 # 2. gprof2dot -f pstats output.prof | dot -Tsvg -o output.svg 
 #  python -m cProfile -s tottime -o output.prof main.py 4
 
+
 def profile_this():
     model_golden = BaseModel(defs.MODEL_NAME)
     model_faulty = InstrumentedModel(defs.MODEL_NAME)
 
-    if defs.TREE_FI_MODE:
-        experiment = exp_par.ExperimentParallel(model_faulty, model_golden) 
-    else:
-        experiment = exp_seq.ExperimentSequential(model_faulty, model_golden) 
+    experiment = exp_seq.ExperimentSequential(
+        model_faulty, 
+        model_golden) 
 
-    input_indices = u.random_indices(size=defs.BATCHES*defs.BATCH_SIZE, max=dataloader.dataset_len-1)
+    input_indices = u.random_indices(
+        size=defs.BATCHES*defs.BATCH_SIZE, 
+        max=dataloader.dataset_len-1)
 
     critical_faults = experiment.run_experiment(input_indices, trials=defs.INJECTIONS);
 

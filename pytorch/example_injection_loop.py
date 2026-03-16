@@ -14,10 +14,10 @@ from src import sim_options as opt
 args = opt.parse_args()
 
 # loads a golden, reference model
-model_golden = BaseModel(args.model)
+model_golden = BaseModel(args.model).to(defs.DEVICE)
 
 # loads the instrumented model for fault injections
-model_faulty = InstrumentedModel(args.model)
+model_faulty = InstrumentedModel(args.model).to(defs.DEVICE)
 
 # gets a handle to iterate over the dataset
 val_loader = dataloader.load_dataset_imagenet(batch_size=args.bsize)

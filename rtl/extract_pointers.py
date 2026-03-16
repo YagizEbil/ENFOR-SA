@@ -155,6 +155,22 @@ DIM = max(rows, cols)
 
 # --- Emit C ---
 
+
+
+# if the input is passed uses concatenation, e.g, something like ".io_in_b_0 ({{12{pipe_b_0[7]}}, pipe_b_0})"
+# we then extract only the signal name, e.g, io_in_b_0
+                
+def extract_pipe_signal(s):
+    # Match signal names like pipe_b_12_0 optionally followed by [number]
+    match = re.search(r'([a-zA-Z_]\w*)\[\d+\]|([a-zA-Z_]\w*)', s)
+    
+    if match:
+        # Return whichever group matched
+        return match.group(1) if match.group(1) else match.group(2)
+
+    return None
+
+
 def emit_array(f, c_type, name, port, use_reg=False):
     f.write(f"{c_type} * const {name}[DIM][DIM] = {{\n")
     for i in range(DIM):
@@ -169,11 +185,15 @@ def emit_array(f, c_type, name, port, use_reg=False):
 
             if use_reg: # for output signals, we export the register assigned by the output wire
                 reg = out_to_reg.get(sig)
+                
                 if reg is None:
                     row_elems.append("NULL")
                 else:
                     row_elems.append(f"&dut->rootp->Mesh__DOT__{reg}")
             else:
+                if "{" in sig:
+                    sig = extract_pipe_signal(sig)
+
                 row_elems.append(f"&dut->rootp->Mesh__DOT__{sig}")
 
         f.write(", ".join(row_elems))
@@ -208,6 +228,49 @@ def gen_pe_io_out_d_pointers():
 
 
 # generates the PE C2 pointers
+
+"""
+IData/*30:0*/ Mesh__DOT__mesh_0_1__DOT__tile_0_0__DOT__c1_tvu__DOT___vandorOut_rVan2_m_q;
+IData/*30:0*/ Mesh__DOT__mesh_0_1__DOT__tile_0_0__DOT__c1_tvu__DOT___vandorOut_rVan1_m_q;
+Mesh__DOT__mesh_0_2__DOT__tile_0_0__DOT___c1_tvu_io_out
+
+
+IData/*31:0*/ Mesh__DOT__mesh_0_1__DOT__tile_0_0__DOT__c2_tvu__DOT__unprotOut;
+"""
+
+def gen_pe_c1_c2_pointers_ft():
+
+    var_decl = "void * const pe_c1[DIM][DIM] = \n"
+
+    with open(OUT_C_FILE, mode='a', newline='') as f:
+        f.write(var_decl)
+        f.write("{\n")
+
+        for i in range(DIM):
+            f.write("\t{\n")
+
+            for j in range(DIM):
+                f.write(f"\t\t{OBJ_PTR}->Mesh__DOT__mesh_{i}_{j}__DOT__tile_0_0__DOT___c1_tvu_io_out,\n")
+                                       # Mesh__DOT__mesh_0_2    __DOT__tile_0_0__DOT___c1_tvu_io_out
+            f.write("\t},\n")
+        f.write("};\n\n")
+
+
+    var_decl = "void * const pe_c2[DIM][DIM] = \n"
+
+    with open(OUT_C_FILE, mode='a', newline='') as f:
+        f.write(var_decl)
+        f.write("{\n")
+
+        for i in range(DIM):
+            f.write("\t{\n")
+
+            for j in range(DIM):
+                f.write(f"\t\t{OBJ_PTR}->Mesh__DOT__mesh_{i}_{j}__DOT__tile_0_0__DOT__c2_tvu__DOT__unprotOut,\n")
+                                       # Mesh__DOT__mesh_0_1    __DOT__tile_0_0__DOT__c2_tvu__DOT__unprotOut
+            f.write("\t},\n")
+        f.write("};\n\n")
+
 def gen_pe_c1_c2_pointers():
 
     var_decl = "void * const pe_c1[DIM][DIM] = \n"
@@ -358,8 +421,10 @@ def parse_verilog():
 
 parse_verilog()
 
-#gen_pe_io_out_d_pointers() # OS only
-gen_pe_c1_c2_pointers()
+gen_pe_io_out_d_pointers() # OS only
+#gen_pe_c1_c2_pointers()
+gen_pe_c1_c2_pointers_ft()
+
 gen_mesh_pointers()
 
 

@@ -33,34 +33,16 @@ class BaseModel(torch.nn.Module):
 
         self.model.eval()
 
-        self.is_golden = True
-
         BaseModel.input_batch_indices: List[int] = None
-
-        self.top1_conf = defaultdict(int)
-        self.top2_conf = defaultdict(int)
-        self.conf_gap  = defaultdict(int)
-
-        # Use all layers of the base model except the final fully connected (fc) layer
-        # this would be used for fastforwarding the model
-        #self.features = torch.nn.Sequential(*list(self.model.children())[:-1])
-        #self.features = torch.nn.Sequential(*list(self.model.children())[:]) # take all layers
-        #self.n_layers = len(self.features)
-
-        #print(self.features)
-        #exit(0)
-
-        self.time_samples_forward_pass = [] # [Debug only]: stores the execution times of the forward pass
+        self.is_golden = True
         self.calibrate = False
     
 
     def run_inference(self, inputs, fault=None):
-        #if fault != None:
         fl.next_fault = fault
 
         with torch.no_grad():  # No need to compute gradients
             # Get the model's output
-            #self.output_logits = self.model(BaseModel.input_batch) # this wont call the forward pass!!
             output_logits = self(inputs)
 
             if defs.CUDA:
@@ -69,18 +51,12 @@ class BaseModel(torch.nn.Module):
             return output_logits
 
 
-    # every type of variable that is shared between faulty and golden models is static (i.e, BaseModel.var):
-    #   ex: input batches, input batch ids, ground truth labels (these are set whenever a new golden run is performed)
-    # other types of fields are not static (these are set whenever a new inference is performed)
-    #   ex: classification labels, scores, accuracy, etc.
-
     # runs a new batch inference (both golden or faulty models can call this). this stores model-dependent results
     def run_batch_inference(self):
         if len(BaseModel.input_batch): # when pruning the inputs in the tree mode, the batch maybe completely erased
             with torch.no_grad():  # No need to compute gradients
                 # Get the model's output
-                #self.output_logits = self.model(BaseModel.input_batch) # this wont call the forward pass!!
-                self.output_logits = self(BaseModel.input_batch.float())
+                self.output_logits = self(BaseModel.input_batch)
 
                 if defs.CUDA:
                     torch.cuda.synchronize()
@@ -89,7 +65,7 @@ class BaseModel(torch.nn.Module):
                 self.probabilities = torch.nn.functional.softmax(self.output_logits, dim=1)
      
                 # top5_classes.values contains the score probabilities - top5_classes.indices containts the associated classification indices
-                self.top5_classes = torch.topk(self.probabilities, 5)
+                self.top5_classes = torch.topk(self.probabilities, 5, dim=1)
 
                 # the top 5 labels
                 self.top5_classes_indices = self.top5_classes.indices      
@@ -100,16 +76,7 @@ class BaseModel(torch.nn.Module):
 
                 # Get the predicted top-1 label for each input in the batch
                 self.predicted_labels = torch.argmax(self.probabilities, dim=1)
-
-                """
-                if defs.TREE_FI_MODE:
-                    if self.is_golden:
-                        # computes the conf. gap between top1 and top2 confidence levels
-                        for i in range(len(BaseModel.input_batch)):
-                            self.top1_conf[BaseModel.input_batch_indices[i]] = self.top5_classes_values[i][0].item()
-                            self.top2_conf[BaseModel.input_batch_indices[i]] = self.top5_classes_values[i][1].item()
-                            self.conf_gap[BaseModel.input_batch_indices[i]] = (self.top1_conf[BaseModel.input_batch_indices[i]] - self.top2_conf[BaseModel.input_batch_indices[i]])
-                """
+    
                 return self.predicted_labels, self.top5_classes, self.output_logits
 
         return None, None, None
@@ -155,7 +122,6 @@ class BaseModel(torch.nn.Module):
 
         # empties the tensor LUTs - must call this when running multiple inputs in the same campaign to force the LUT tensors to be loaded again to the new input
         tcache.clear_luts()
-
 
 
     def layer_names(self): # Returns a list of layer names.
