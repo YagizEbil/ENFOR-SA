@@ -100,7 +100,7 @@ uint32_t preload(const torch::Tensor& tensor)
     assert(tensor.dim() == 2 && tensor.size(0) == DIM && tensor.size(1) == DIM);
     // Get pointers to the data
 #ifdef GEMM_OS
-    Output_t* data_ptr = tensor.data_ptr<Output_t>();
+    Input_t* data_ptr = tensor.data_ptr<Input_t>();  // cannot cast this to char
 #else
     Input_t* data_ptr = tensor.data_ptr<Output_t>();
 #endif
@@ -186,7 +186,8 @@ void add_transient_fault(
     uint8_t cluster, 
     uint8_t row, 
     uint8_t col, 
-    uint8_t bit, 
+    uint8_t bit,
+    uint8_t ficycle,
     uint32_t cell, 
     bool silent)
 {
@@ -195,7 +196,8 @@ void add_transient_fault(
         cluster, 
         row, 
         col, 
-        bit, 
+        bit,
+        ficycle,
         cell, 
         silent);
 }

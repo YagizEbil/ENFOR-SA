@@ -174,6 +174,39 @@ CONFIG_PARAMS = {
         "out_dtype": torch.int32, 
         "mode":      MODE_WS
     },
+
+    "WSDIM64": 
+    {
+        "path":     "CustomGemminiWSTPUSoCConfig",
+        "dim":       64,  
+        "in_bits":   8, 
+        "out_bits":  32, 
+        "in_dtype":  torch.int32, 
+        "out_dtype": torch.int32, 
+        "mode":      MODE_WS
+    },
+
+    "TestConfig": 
+    {
+        "path":     "TestConfig",
+        "dim":       4,  
+        "in_bits":   8, 
+        "out_bits":  32, 
+        "in_dtype":  torch.int32, 
+        "out_dtype": torch.int32, 
+        "mode":      MODE_OS
+    },
+
+    "TVU_SA": 
+    {
+        "path":     "TVU_SA",
+        "dim":       4,  
+        "in_bits":   8, 
+        "out_bits":  32, 
+        "in_dtype":  torch.int32, 
+        "out_dtype": torch.int32, 
+        "mode":      MODE_OS
+    },
 }
 
 #
@@ -260,6 +293,7 @@ def set_config(conf_key):
 
 
 
+
 """
 SIGNAL: The target inputs for fault injection. For Gemmini, this must follow the values defined in the FaultList.h enum 
 (see in /rtl/lib/Gemmini/headers/FaultList.h)
@@ -292,6 +326,20 @@ C2=9
 
 SIG_PROPAG=5
 SIG_VALID=6
+
+SIG_NAMES = {
+    IN_A: "IN_A",
+    IN_B: "IN_B",
+    IN_D: "IN_D",
+    OUT_A: "OUT_A",
+    OUT_B: "OUT_B",
+    OUT_C: "OUT_C",
+    C1: "C1",
+    C2: "C2",
+    SIG_PROPAG: "PROPAG",
+    SIG_VALID: "VALID",
+}
+
 
 PE_IN_BITS = 8
 PE_OUT_BITS = 32

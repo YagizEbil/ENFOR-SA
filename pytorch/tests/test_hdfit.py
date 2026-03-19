@@ -17,6 +17,7 @@ sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
 import src.gemmini.gemmini_extension_definitions as ext
 import src.gemmini.gemmini_config as conf
+import src.gemmini.gemmini_utils as gu
 import src.definitions as defs
 
 
@@ -76,8 +77,10 @@ def validate_against_hdfit():
             gemmini_enfor.clear_fault_list()
             gemmini_hdfit.clear_fault_list()
 
-            gemmini_enfor.add_transient_fault(target, row, col, bit, 0, FI_SILENT)
-            gemmini_hdfit.add_transient_fault(target, row, col, bit, 0, FI_SILENT)
+            ficycle = gu.pe_first_cycle(row, col) + 1 # the cycle hdfit injects
+
+            gemmini_enfor.add_transient_fault(target, row, col, bit, ficycle, 0, FI_SILENT)
+            gemmini_hdfit.add_transient_fault(target, row, col, bit, ficycle, 0, FI_SILENT)
 
             _ = gemmini_enfor.stream(A, B)
             _ = gemmini_hdfit.stream(A, B)

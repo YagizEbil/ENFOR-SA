@@ -3,6 +3,7 @@ import random
 from typing import Optional
 
 from src.gemmini import gemmini_config as conf
+from src.gemmini import gemmini_utils as gu
 from src.gemmini import gemmini_extension_definitions as ext
 from src.flist import fault_list as flist
 from src.utils import utils as u
@@ -72,11 +73,18 @@ class Gemmini:
     # updates the fault list in Gemmini with the positions previously (globaly) stored in "fault"
     def update_fault_list(self, fault: Optional[flist.GemminiPos]):
         self.device.clear_fault_list()
+        
+        # the iteraction in which the PE is injected
+        ficycle = gu.pe_first_cycle(fault.pe_row, fault.pe_col) + 1
+        #ficycle = gu.pe_last_cycle(fault.pe_row, fault.pe_col, conf.DIM)
+        #ficycle = gu.get_pe_active_rand_cycle(fault.pe_row, fault.pe_col, conf.DIM)
+
         self.device.add_transient_fault(
             fault.target, 
             fault.pe_row, 
             fault.pe_col, 
-            fault.bit, 
+            fault.bit,
+            ficycle,
             fault.cell, 
             FI_SILENT
         )
@@ -86,12 +94,15 @@ class Gemmini:
     # adds a random fault generated at runtime
     def update_fault_list_random(self):
         self.device.clear_fault_list()
-        new_fault = gen_random_fault()
+        new_fault = gu.gen_random_fault()
+        ficycle = gu.pe_first_cycle(fault.pe_row, fault.pe_col)
+        
         self.device.add_transient_fault(
             new_fault.target, 
             new_fault.pe_row, 
             new_fault.pe_col, 
-            new_fault.bit, 
+            new_fault.bit,
+            ficycle,
             fault.cell, 
             FI_SILENT
         )
@@ -253,19 +264,6 @@ class GemminiWS(Gemmini):
 
         return C_p[:I, :J]
 
-
-# [Debug only]: returns the random fault positions at runtime instead of reading it from the (csv file) fault list
-def gen_random_fault():
-    new_fault = flist.GemminiPos()
-    idx = random.randint(0, 1) # 0-1 is either IN_A or IN_B
-    
-    new_fault.target = list(conf.SIGNAL.values())[idx][0]
-    bits = list(conf.SIGNAL.values())[idx][1]
-
-    new_fault.pe_row = random.randint(0, conf.DIM-1)
-    new_fault.pe_col = random.randint(0, conf.DIM-1)
-    new_fault.bit = random.randint(0, bits-1)
-    return new_fault
 
 
 #

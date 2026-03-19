@@ -28,6 +28,7 @@ public:
     void *ptr_out_a = nullptr; // the last column has not out_a output register    
     void *ptr_out_b;
     void *ptr_out_c;
+    void *ptr_mac_out_d;
 
     void *ptr_valid;
     void *ptr_propagate;
@@ -75,10 +76,33 @@ public:
         return *(Input_t*)ptr_in_d;
     }
 
+    Input_t getOutA()
+    {
+        return *(Input_t*)ptr_out_a;
+    }
+
+    Input_t getOutB()
+    {
+        return *(Input_t*)ptr_out_b;
+    }
+
+    Input_t getC1()
+    {
+        return *(Input_t*)ptr_c1;
+    }
+
+    Input_t getC2()
+    {
+        return *(Input_t*)ptr_c2;
+    }
+
     Output_t getOutput()
     {
     #ifdef GEMM_OS // this will be the MAC unit output. this is currenlty pointing to pe_io_out, so that we can inject in the same part HDFIT does
-        return *(Output_t*)ptr_out_c;
+        //return *(Output_t*)ptr_c1;
+        //return *(Output_t*)ptr_out_c; 
+        return *(Output_t*)ptr_mac_out_d;
+
     #else // This will the the partial sum passed to downstream PEs
         return *(Output_t*)ptr_out_b;
     #endif
@@ -87,7 +111,10 @@ public:
     void setMacOut (Output_t data)
     {  
     #ifdef GEMM_OS
-        *(Output_t*)ptr_out_c = data;
+        //*(Output_t*)ptr_c1 = data;
+        //*(Output_t*)ptr_out_c = data;
+        *(Output_t*)ptr_mac_out_d = data;
+        
     #else
         *(Output_t*)ptr_out_b = data;
     #endif
@@ -152,8 +179,12 @@ void Pe::flipBitInD(uint8_t bit)
 
 void Pe::flipBitMacOut(uint8_t bit) // Funciona de acordo com o comentado na funcao stuckAtBitOutC
 {  
-    uint32_t mask = 1U << bit; 
+    uint32_t mask = 1U << bit;
+#ifdef GEMM_OS
+    *(Output_t*)ptr_mac_out_d ^= mask;
+#else
     *(Output_t*)ptr_out_c ^= mask;
+#endif
 }
 
 
@@ -173,7 +204,7 @@ void Pe::flipBitC2(uint8_t bit)
 
 void Pe::flipBitValid()
 {
-    *(int*)ptr_valid = (*(int*)ptr_valid)^1U;  
+    *(CData*)ptr_valid = (*(CData*)ptr_valid)^1U;  
 }
 
 

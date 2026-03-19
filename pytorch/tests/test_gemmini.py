@@ -18,10 +18,9 @@ sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 import src.gemmini.gemmini_extension_definitions as ext
 import src.gemmini.gemmini_config as conf
 from src.gemmini.gemmini_config import *
+from src.gemmini import gemmini_utils as gu
 import src.definitions as defs
 
-
-#defs.ENABLE_GL_FAULT_MODEL = False
 
 # Available configs
 
@@ -48,7 +47,14 @@ CONFIG_KEY = "OSDIM8"
 #
 #CONFIG_KEY = "WSDIM4"
 #CONFIG_KEY = "WSDIM8"
+#CONFIG_KEY = "WSDIM64"
 
+#CONFIG_KEY = "TVU_SA"
+#CONFIG_KEY = "TestConfig"
+
+
+#CONFIG_KEY = sys.argv[1]
+#print("CONFIG_KEY = ", CONFIG_KEY)
 #
 # Loads the Gemmini module - the ahead-of-time extension to interface with the verilated Gemmini module (this lib is designed in /rtl/lib/Gemmini)
 #
@@ -57,28 +63,35 @@ defs.ENABLE_GL_FAULT_MODEL = False
 #defs.ENABLE_GL_FAULT_MODEL = True
 
 gemmini = ext.load_extension(CONFIG_KEY) # if CONFIG_KEY is a direct config name
+gemmini.init()
+gemmini.print_info()
 
 DIM = conf.DIM
 INPUT_TYPE  = conf.GEMM_INPUT_DTYPE
 OUTPUT_TYPE = conf.GEMM_OUTPUT_DTYPE
 MIN_INT, MAX_INT = -128, 127
 
-if CONFIG_KEY in ["WSDIM4", "WSDIM8"]: # as in WS we preload the B tensor, we must assure the stream size is same size of the SA
-    STREAM_SIZE = conf.CONFIG_PARAMS[CONFIG_KEY]["dim"]
+# HDFIT assignment IDs for GL fault injection
+MAC_UNIT_HDFIT_FIRST_TARGET_ID = 2     # First one is assign _0056_[16] =( io_in_a[8] & io_in_b[8]) ^ ((fiEnable && (2 == GlobalFiNumber)) ? GlobalFiSignal[0] : {1{1'b0}});
+#MAC_UNIT_HDFIT_LAST_TARGET_ID = 3419  # 32/32-bit inputs/outputs (unsigned mac): Last one is assign _0184_[0] =( _0182_[0]) ^ ((fiEnable && (3419 == GlobalFiNumber)) ? GlobalFiSignal[0] : {1{1'b0}});
+#MAC_UNIT_HDFIT_LAST_TARGET_ID  = 591  # 8/32-bit inputs/outputs (unsigned mac) 
+MAC_UNIT_HDFIT_LAST_TARGET_ID  = 824   # 8/32-bit inputs/outputs (signed mac)
 
+
+if CONFIG_KEY in ["WSDIM4", "WSDIM8", "WSDIM64"]: # as in WS we preload the B tensor, we must assure the stream size is same size of the SA
+    STREAM_SIZE = conf.CONFIG_PARAMS[CONFIG_KEY]["dim"]
 else:
     #STREAM_SIZE = 8
     # the shape of the left->right input stream must be DIM x STREAM_SIZE
     # the shape of the top->bottom input stream must be STREAM_SIZE x DIM
     # in all cases, we must assure STREAM_SIZE >= DIM
-
     STREAM_SIZE = conf.CONFIG_PARAMS[CONFIG_KEY]["dim"] + 4 
+
 
 #unittest.skip
 class TesterGemmini(unittest.TestCase):
     def __init__(self, *args, **kwargs):
         super(TesterGemmini, self).__init__(*args, **kwargs)
-
 
         assert (STREAM_SIZE >= conf.DIM)
 
@@ -101,11 +114,6 @@ class TesterGemmini(unittest.TestCase):
         self.B4 = torch.zeros((STREAM_SIZE, DIM), dtype=INPUT_TYPE)
 
     def setUp(self):
-        """
-        self.A = torch.randint(MIN_INT, MAX_INT, (DIM, DIM), dtype=torch.int)
-        self.B = torch.randint(MIN_INT, MAX_INT, (DIM, DIM), dtype=torch.int)
-        self.D = torch.randint(MIN_INT, MAX_INT, (DIM, DIM), dtype=torch.int)
-        """
         pass
 
 
@@ -122,7 +130,6 @@ class TesterGemmini(unittest.TestCase):
         """
             Test the computation of C = A1*B1 + A2*B2 + A3*B3 + A4*B4 + D 
         """
-
         for i in range(nTrials):
             self.D.random_(MIN_INT, MAX_INT)
             self.A1.random_(MIN_INT, MAX_INT)
@@ -156,11 +163,36 @@ class TesterGemmini(unittest.TestCase):
 
 
     #@unittest.skip
-    def test_matmul_ws(self):  
-        if conf.GEMM_MODE != conf.MODE_WS:
+    def test_preload_then_flush(self):  # this is for OS only!
+        if conf.GEMM_MODE != conf.MODE_OS:
             return
 
         nFailed, nTrials = 0, 1000
+       
+        for i in range(nTrials):
+            self.D.random_(MIN_INT, MAX_INT)
+
+            C_gold = self.D.clone()  
+            C_gold_t = C_gold.clone().t()  
+
+            steps = gemmini.preload(self.D)
+            steps = gemmini.flush_gemm(self.C, False)
+
+            nFailed += not torch.equal(C_gold, self.C)
+
+            steps = gemmini.preload(self.D)
+            steps = gemmini.flush_gemm(self.C, True) 
+            nFailed += not torch.equal(C_gold_t, self.C)
+
+        fn = inspect.currentframe().f_code.co_name
+        print(f"{fn} iterations: {nTrials} - failed: {nFailed}")
+        self.assertTrue(nFailed == 0)
+
+
+    #@unittest.skip
+    def test_matmul_ws(self):  
+        if conf.GEMM_MODE != conf.MODE_WS:
+            return
 
         """
             Test the computation of
@@ -171,6 +203,7 @@ class TesterGemmini(unittest.TestCase):
         """
 
         n = 10
+        nFailed, nTrials = 0, 10
 
         for i in range(nTrials):
             self.B.random_(MIN_INT, MAX_INT)
@@ -184,33 +217,6 @@ class TesterGemmini(unittest.TestCase):
                 steps_mm = gemmini.stream_bias(self.A, self.D, self.C)
 
                 nFailed += not torch.equal(C_gold, self.C)
-
-        fn = inspect.currentframe().f_code.co_name
-        print(f"{fn} iterations: {nTrials} - failed: {nFailed}")
-        self.assertTrue(nFailed == 0)
-
-
-    #@unittest.skip
-    def test_preload_then_flush(self):  # this is for OS only!
-        if conf.GEMM_MODE != conf.MODE_OS:
-            return
-
-        nFailed, nTrials = 0, 100
-       
-        for i in range(nTrials):
-            self.D.random_(MIN_INT, MAX_INT)
-
-            C_gold = self.D.clone()  
-            C_gold_t = C_gold.clone().t()  
-
-            steps = gemmini.preload(self.D)
-            steps = gemmini.flush_gemm(self.C, False) 
-            
-            nFailed += not torch.equal(C_gold, self.C)
-
-            steps = gemmini.preload(self.D)
-            steps = gemmini.flush_gemm(self.C, True) 
-            nFailed += not torch.equal(C_gold_t, self.C)
 
         fn = inspect.currentframe().f_code.co_name
         print(f"{fn} iterations: {nTrials} - failed: {nFailed}")
@@ -246,11 +252,12 @@ class TesterGemmini(unittest.TestCase):
 
         self.assertTrue(nFailed == 0)
 
+
     #@unittest.skip
     def test_fi_eval(self):
         #print("[Testing]:", inspect.currentframe().f_code.co_name)
 
-        nFailed, nTrials = 0, 1000
+        nFailed, nTrials = 0, 200
         fiSilent = True
 
         PE_IN_BITS, PE_OUT_BITS = 8, 32
@@ -293,8 +300,13 @@ class TesterGemmini(unittest.TestCase):
                 row = random.randint(0, DIM-1)
                 col = random.randint(0, DIM-1)
                 bit = random.randint(0, bits-1)
-                cell = 0 # removed for open source
-                pol = random.randint(0, 1) # for permanent faults only 
+                ficycle = gu.get_pe_active_rand_cycle(row, col, DIM)
+
+                cell = random.randint(
+                    MAC_UNIT_HDFIT_FIRST_TARGET_ID, 
+                    MAC_UNIT_HDFIT_LAST_TARGET_ID)
+
+                #pol = random.randint(0, 1) # for permanent faults only 
 
                 self.A.random_(1, MAX_INT)
                 self.B.random_(1, MAX_INT)
@@ -305,28 +317,25 @@ class TesterGemmini(unittest.TestCase):
                 #self.D.random_(MIN_INT, MAX_INT)
 
                 gemmini.clear_fault_list()
-                gemmini.add_transient_fault(
-                    target, 
-                    row, 
-                    col, 
-                    bit, 
-                    cell, 
-                    fiSilent) 
                 
-                #gemmini.add_permanent_fault(target, row, col, bit, pol, cell, False) # Important: for permanents, one must clear the fault list for the next tests...
+                gemmini.add_transient_fault(
+                    target, row, col, bit, ficycle, cell, fiSilent) 
+                
+                #gemmini.add_permanent_fault(
+                #target, row, col, bit, pol, cell, False) # Important: for permanents, one must clear the fault list for the next tests...
 
-                C_gold = torch.mm(self.A, self.B) + self.D
+                C_gold = torch.mm(self.A, self.B)  # + self.D
                 
                 if conf.GEMM_MODE == conf.MODE_OS:
-                    steps_pre = gemmini.preload(self.D)
+                    #steps_pre = gemmini.preload(self.D)
                     steps_str = gemmini.stream(self.A, self.B)
                     steps_flu = gemmini.flush_gemm(self.C, False)
                 else:
                     steps_pre = gemmini.preload(self.B)
-                    #steps_str  = gemmini.stream(self.A, self.C) # if D=0
-                    steps_str  = gemmini.stream_bias(self.A, self.D, self.C)
+                    steps_str  = gemmini.stream(self.A, self.C) # if D=0
+                    #steps_str  = gemmini.stream_bias(self.A, self.D, self.C)
                 gemmini.clear_fault_list()
-
+                
                 faulty_outputs += not torch.equal(C_gold, self.C)
 
         injections = len(TARGET_SIGNALS)*nTrials
@@ -336,8 +345,5 @@ class TesterGemmini(unittest.TestCase):
 
 
 if __name__ == '__main__':
-    gemmini.init()
-    gemmini.print_info()
-
     unittest.main()
     gemmini.finish()

@@ -6,8 +6,6 @@
 #include "config.h"
 #include "utils.h"
 
-#define PDIM (2*DIM-1) // dims for the padded matrices
-#define TIMEOUT_ITERS (1000*PDIM)
 
 typedef function<void(uint8_t)> callback_type;
 
@@ -85,6 +83,9 @@ public:
     void loadPointers();
     void reset();
 
+    Input_t getPrevInputA(uint8_t r, uint8_t col);
+    Input_t getPrevInputB(uint8_t r, uint8_t col);
+
     void flipBitInA(uint8_t f);
     void flipBitInB(uint8_t f);
     void flipBitInD(uint8_t f);
@@ -152,6 +153,7 @@ public:
     
     CData *ptr_mesh_valid[DIM];
     CData *ptr_mesh_propagate[DIM];
+    CData *ptr_mesh_dataflow[DIM];
     //CData *ptr_mesh_shift[DIM];
 
     vector<Fault*> faultList;
@@ -171,14 +173,16 @@ void Mesh::loadPointers()
 #   include STR(gemmini-pointers/ws/CONFIG.cc)
 #endif
 
+//#include "gemmini-pointers/os/mediumosconfig_old_pointers.cc"
+
     /* PE pointers */
     for (uint8_t i = 0; i < DIM; i++)
     {
         for (uint8_t j = 0; j < DIM; j++)
         {
-            pe[i][j]->ptr_in_a  = in_a[i][j];
-            pe[i][j]->ptr_in_b  = in_b[i][j]; 
-            pe[i][j]->ptr_in_d  = in_d[i][j]; 
+            pe[i][j]->ptr_in_a = in_a[i][j];
+            pe[i][j]->ptr_in_b = in_b[i][j]; 
+            pe[i][j]->ptr_in_d = in_d[i][j]; 
 
             pe[i][j]->ptr_out_a = out_a[i][j];      
             pe[i][j]->ptr_out_b = out_b[i][j]; 
@@ -187,7 +191,8 @@ void Mesh::loadPointers()
             #if GEMM_WS
                 pe[i][j]->ptr_out_c = out_c[i][j];
             #else
-                pe[i][j]->ptr_out_c = pe_io_out[i][j];
+                pe[i][j]->ptr_out_c = out_c[i][j];
+                pe[i][j]->ptr_mac_out_d = pe_io_out[i][j];
             #endif
             // but in the following signals the fault is always masked...
             //pe[i][j]->ptr_out_c = out_c[i][j];
@@ -209,15 +214,35 @@ void Mesh::loadPointers()
         ptr_mesh_in_b[i] = (Input_t*)mesh_in_b[i];
         ptr_mesh_in_d[i] = (Input_t*)mesh_in_d[i];
 
-        ptr_mesh_out_b[i] = (Output_t*)mesh_out_b[i];
+        ptr_mesh_out_b[i] = (Input_t*)mesh_out_b[i];
         ptr_mesh_out_c[i] = (Output_t*)mesh_out_c[i];
 
         ptr_mesh_valid[i] = (CData*)mesh_valid[i];
         ptr_mesh_propagate[i] = (CData*)mesh_propagate[i];
+        //ptr_mesh_dataflow[i] = (CData*)mesh_dataflow[i];
         //ptr_mesh_shift[i] = (CData*)mesh_shift[i];
      }
 }
 
+
+Input_t Mesh::getPrevInputA(uint8_t row, uint8_t col)
+{   
+    if (col == 0)
+        return *((Input_t*)ptr_mesh_in_a[row]);
+
+    else
+        return pe[row][col-1]->getInputA();
+}
+
+
+Input_t Mesh::getPrevInputB(uint8_t row, uint8_t col)
+{
+    if (row == 0)
+        return *((Input_t*)ptr_mesh_in_b[col]);
+
+    else
+        return pe[row-1][col]->getInputB();
+}
 
 /* io_in_a_0: flows from left to right
 
@@ -227,7 +252,9 @@ If the target pe is the first column, we flip the mesh io_in_a_ input
 void Mesh::flipBitInA(uint8_t f)
 {   
     Fault *fault = faultList[f];
-    
+    //pe[fault->row][fault->col]->flipBitInA(fault->bit);
+    //return;
+
     if (fault->col == 0)
     {
         uint32_t mask = 1U << fault->bit; 
@@ -248,6 +275,8 @@ void Mesh::flipBitInA(uint8_t f)
 void Mesh::flipBitInB(uint8_t f)
 {
     Fault *fault = faultList[f];
+    //pe[fault->row][fault->col]->flipBitInB(fault->bit);
+    //return;
 
     if (fault->row == 0)
     {
@@ -297,6 +326,8 @@ void Mesh::flipBitOutA(uint8_t f)
 void Mesh::flipBitOutB(uint8_t f)
 {
     Fault *fault = faultList[f];
+    //pe[fault->row][fault->col]->flipBitOutB(fault->bit);
+    //return;
 
     if (fault->row == 0)
     {
@@ -310,7 +341,7 @@ void Mesh::flipBitOutB(uint8_t f)
 }
 
 
-void Mesh::flipBitC1(uint8_t f)
+void Mesh::flipBitC1(uint8_t f) // C1 and C2 registers are stationary after preloads. for now we can inject directly in them
 {
     Fault *fault = faultList[f];
     pe[fault->row][fault->col]->flipBitC1(fault->bit);
@@ -335,6 +366,17 @@ void Mesh::flipBitPropagB(uint8_t f)
 {
     Fault *fault = faultList[f];
     pe[fault->row][fault->col]->flipBitPropagB();
+    return;
+    
+    if (fault->row == 0)
+    {
+        uint32_t mask = 1U << fault->bit; 
+
+        *(Input_t*)ptr_mesh_propagate[fault->col] ^= mask;  
+    }
+
+    else
+        pe[fault->row-1][fault->col]->flipBitPropagB();
 } 
 
 
@@ -342,6 +384,17 @@ void Mesh::flipBitValid(uint8_t f)
 {
     Fault *fault = faultList[f];
     pe[fault->row][fault->col]->flipBitValid();
+    return;
+
+    if (fault->row == 0)
+    {
+        uint32_t mask = 1U << fault->bit; 
+
+        *(Input_t*)ptr_mesh_valid[fault->col] ^= mask;  
+    }
+
+    else
+        pe[fault->row-1][fault->col]->flipBitValid();
 }
 
 
@@ -469,7 +522,6 @@ void Mesh::reset () // resets the ctrl signals and inputs only
         *(CData*)ptr_mesh_propagate[i] = 0;
         
         //*(CData*)ptr_mesh_shift[i] = 0;
-
 
         LOOP(j,DIM) 
             pe[i][j]->reset();

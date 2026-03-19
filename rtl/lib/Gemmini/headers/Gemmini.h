@@ -19,9 +19,12 @@
 #define WILL_PE_INPUT_BE_ASSIGNED(row,col,iteration)  (iteration == row + col + 0)
 #define WILL_PE_OUTPUT_BE_ASSIGNED(row,col,iteration) (iteration == row + col + 1) // the output is written one cycle latter
 
-#define PE_FIRST_ITER_CYCLE(row,col) (row + col)
-#define PE_LAST_ITER_CYCLE(row,col)  (row + col + DIM - 1)
-#define PE_IS_ACTIVE(row,col,it) (it >= PE_FIRST_ITER_CYCLE(row,col) && it <= PE_LAST_ITER_CYCLE(row,col))
+#define PE_FIRST_CYCLE(i,j) ((i) + (j))
+#define PE_LAST_CYCLE(i,j,STREAM_SIZE) ((i) + (j) + (STREAM_SIZE) - 1)
+
+#define PE_ACTIVE(i,j,STREAM_SIZE,it) \
+    ((it) >= PE_FIRST_CYCLE(i,j) && (it) <= PE_LAST_CYCLE(i,j,STREAM_SIZE))
+
 
 Output_t Z[DIM][DIM]; // zero matrix
 
@@ -40,10 +43,6 @@ public:
     {
         context = new Context (dut, configId_, simOpt.faulty);
         mesh = new Mesh (dut);
-
-    #ifdef USE_GL_INJECTION
-        // removed
-    #endif
     }
 
     ~Gemmini()
@@ -55,10 +54,6 @@ public:
 
         if (context != nullptr)
             delete context;
-
-    #if USE_GL_INJECTION
-        // removed
-    #endif
     }
 
     uint32_t resetMesh();
@@ -87,11 +82,12 @@ public:
         int grp, 
         int row, 
         int col, 
-        int bit, 
+        int bit,
+        int ficycle,
         int cell, 
         bool silent) // set fault attributes for transient faults
     {
-        mesh->addFaultToList(new Fault(fm, grp, row, col, bit, cell, silent));
+        mesh->addFaultToList(new Fault(fm, grp, row, col, bit, ficycle, cell, silent));
     }
 
     void addPermanentFault(
@@ -104,7 +100,7 @@ public:
         int cell, 
         bool silent)  // set fault attributes for permanent faults
     {
-        mesh->addFaultToList(new Fault(fm, grp, row, col, bit, pol, cell, silent));
+        mesh->addFaultToList(new Fault(fm, grp, row, col, bit, 0, pol, cell, silent));
     }
 
     void addClientFaultToList(ClientFault fault) // used when Gemmini is used in a separate process (e.g., through main-server.cpp)
@@ -115,7 +111,8 @@ public:
                 fault.target, 
                 fault.row, 
                 fault.col, 
-                fault.bit, 
+                fault.bit,
+                fault.ficycle,
                 fault.cell, 
                 fault.silent);
         
@@ -125,7 +122,7 @@ public:
                 fault.target, 
                 fault.row, 
                 fault.col, 
-                fault.bit, 
+                fault.bit,
                 fault.pol, 
                 fault.cell, 
                 fault.silent);
@@ -139,6 +136,29 @@ public:
         mesh->clearFaultList();
     }
 
+
+    uint32_t get_pe_active_rand_cycle(uint8_t row, uint8_t col, uint32_t streamSize) 
+    {
+        uint32_t first = PE_FIRST_CYCLE(row, col);
+        uint32_t last  = PE_LAST_CYCLE(row, col, streamSize);
+
+        uint32_t cycle = first + rand() % (last - first + 1);
+
+        return cycle;
+    }
+
+        
+    void debug_dump_c2(const char *msg)
+    {
+        printf ("%s\n", msg);
+        LOOP(i,DIM)
+        {
+            LOOP(j,DIM)
+                printf ("%d ", *(int*)mesh->pe[i][j]->ptr_c2);
+            printf ("\n");
+        }
+    }
+
 #ifdef ENABLE_HDFIT_VALIDATION // HDFIT was validated againts OS DIM8 only. ENABLE_HDFIT_VALIDATION must be defined in configs/<config header>
     void hdfit_prepare();
     void hdfit_inject(uint32_t it);
@@ -147,10 +167,6 @@ public:
 
     uint32_t cycle;
     uint32_t sizeFaultList;
-
-#ifdef USE_GL_INJECTION
-    // removed
-#endif
 
     Mesh *mesh;
     Context *context;
@@ -185,6 +201,9 @@ uint32_t Gemmini::preload(const Input_t *M)
 {
     debugprintf ("Gemmini: preload()\n");
 
+    //for(uint8_t r = 0; r < DIM; r++)    
+        //*mesh->ptr_mesh_dataflow[r] = 1;
+
     uint32_t steps = 0;
 
 #if 0 // Magic preload for faster injection during computation. for FIs that do not consider the effects of preloads this trick can be used
@@ -192,9 +211,9 @@ uint32_t Gemmini::preload(const Input_t *M)
         LOOP(j,DIM)
         {
         #ifdef GEMM_OS
-            *(IData*)mesh->pe[i][j]->ptr_c1 = M[i][j];
+            *(IData*)mesh->pe[i][j]->ptr_c1 = M[i*DIM + j];
         #else
-            *(IData*)mesh->pe[i][j]->ptr_c2 = M[i][j];
+            *(IData*)mesh->pe[i][j]->ptr_c2 = M[i*DIM + j];
         #endif
         }
     return 2*DIM; // we have  LOOP(i, DIM) steps++; twice below
@@ -216,15 +235,14 @@ uint32_t Gemmini::preload(const Input_t *M)
     #ifdef GEMM_OS
         *mesh->ptr_mesh_propagate[i] = 1;
     #else
-        *mesh->ptr_mesh_propagate[i] = 0;
+        *mesh->ptr_mesh_propagate[i] = 0;  // WS: store weights in C2
     #endif
     }
 
-    LOOP(i, DIM) // propagates the inputs the in_d -> b_x_y registers. one cycle for the input to reach b_16_0 + one cycle to reach c1
+    LOOP(i, DIM) // propagates the inputs as in b_x_y <- in_d. one cycle for the input to reach b_16_0 + one cycle to reach c1
     {   
         for(uint8_t c = 0; c < DIM; c++)
-
-            *mesh->ptr_mesh_in_d[c] = M[(DIM-1-i)*DIM + c];
+            *mesh->ptr_mesh_in_d[c] = M[(DIM-1-i)*DIM + c];  // as seen in PE_.sv: the weights stored in c1/c2 come from in_d register
 
     #ifdef ENABLE_PERMANENT_FAULTS  // defined in FaultList.h
         if (hasPermanentFault)
@@ -251,13 +269,7 @@ uint32_t Gemmini::preload(const Input_t *M)
     }
 
 #if 0 // debug only
-    printf ("C1 after preloading:\n");
-    LOOP(i,DIM)
-    {
-        LOOP(j,DIM)
-            printf ("%d ", *(int*)mesh->pe[i][j]->ptr_c1);
-        printf ("\n");
-    }
+    debug_dump_c2("C2 after preloading");
 #endif
 
     return steps;
@@ -397,7 +409,7 @@ uint32_t Gemmini::streamOS(
             //*mesh->ptr_mesh_shift[it] = 1; // this is only used when propag changes values (see PE.scala and PE.sv). therefore there's no need to reset this to zero for the same matmul
         }
 
-    #ifndef USE_GL_INJECTION 
+    #ifndef USE_GL_INJECTION // RTL: faults are injected here. GL: faults are injected after the MAC operation by replacing the current MACs output with an output computed at GL 
         if (hasTransientFault)
         {
         /* Validation against HDFIT. HDFIT was validated againts OS DIM8 only */
@@ -407,7 +419,8 @@ uint32_t Gemmini::streamOS(
             if (!theTransientFault->performed)
             {
                 //if (WILL_PE_INPUT_BE_ASSIGNED(theTransientFault->row, theTransientFault->col, it))
-                if (WILL_PE_OUTPUT_BE_ASSIGNED(theTransientFault->row, theTransientFault->col, it))
+                //if (WILL_PE_OUTPUT_BE_ASSIGNED(theTransientFault->row, theTransientFault->col, it)) // HDIFT val
+                if (theTransientFault->ficycle == it)
                 {
                     if (!theTransientFault->silent)
                         theTransientFault->print();
@@ -437,15 +450,7 @@ uint32_t Gemmini::streamOS(
     #endif // ENABLE_PERMANENT_FAULTS
     #endif // ifndef USE_GL_INJECTION
 
-    #ifdef USE_GL_INJECTION
-        // removed
-    #endif
-
         cycle = context->step();   // runs a single-cycle DUT step. note that when this executes, the inputs also change again (this is why i saved them before)
-
-    #ifdef USE_GL_INJECTION 
-        // removed
-    #endif
 
     #ifdef ENABLE_HDFIT_VALIDATION
         finished = it == stream_size_delay_reg + 1;
@@ -537,13 +542,14 @@ uint32_t Gemmini::streamWS(
             *mesh->ptr_mesh_propagate[it] = 1;
         }
 
-    #ifndef USE_GL_INJECTION
+    #ifndef USE_GL_INJECTION // RTL: faults are injected here. GL: faults are injected after the MAC operation by replacing the current MACs output with an output computed at GL 
         if (hasTransientFault)
         {
             if (!theTransientFault->performed)
             {
                 //if (WILL_PE_INPUT_BE_ASSIGNED(theTransientFault->row, theTransientFault->col, it))
-                if (WILL_PE_OUTPUT_BE_ASSIGNED(theTransientFault->row, theTransientFault->col, it))
+                //if (WILL_PE_OUTPUT_BE_ASSIGNED(theTransientFault->row, theTransientFault->col, it))
+                if (theTransientFault->ficycle == it)
                 {
                     if (!theTransientFault->silent)
                         theTransientFault->print();
@@ -572,24 +578,25 @@ uint32_t Gemmini::streamWS(
     #endif // ENABLE_PERMANENT_FAULTS
     #endif // ifndef USE_GL_INJECTION
 
-    #ifdef USE_GL_INJECTION
-        // removed
-    #endif
-
         cycle = context->step();   // runs a single-cycle DUT step. note that when this executes, the inputs also change again (this is why i saved them before)
-
-    #ifdef USE_GL_INJECTION 
-        // removed
-    #endif
 
         LOOP(i,DIM) // stores each of the PEs outputs, if available, and checks for end of simulation
         {
             LOOP(j,DIM)
             {
+                if (it == PE_LAST_CYCLE(i, j, DIM) + 1) // if it == one extra cycle after the last cycle. + 1 to propagate the pe out reg to the mesh reg (which is linked to the mesh out wire)
+                    outputC[j*DIM + i] = *mesh->ptr_mesh_out_b[i];  // ptr_mesh_out_b[i] outputts per row, one row per cycle: C1i, C2i, C3i, ...
+
+                #if 0 // old way. not used anymore
+                      // i'm not using ptr_propagate and ptr_valid anymore as we inject them, 
+                      // thus preventing from reading the output in the right moment
+                      // this was causing trouble when injectin in ptr_propagate, where a full row and a full column would appear faulty
+                      // when in reality, only a single colum should be affected (now multiple rows)
                 countPeOps[i][j] += *(CData*)mesh->pe[i][j]->ptr_propagate; // When hitting the ptr_propagate signals, countPeOps may not increase, causing a timeout
-                
+                //countPeOps[i][j] += *(CData*)mesh->pe[i][j]->ptr_valid; // same as above
                 if (countPeOps[i][j] == DIM+1) // DIM+1: one extra cycle so that the output appears in the Mesh output
-                    outputC[j*DIM + i] = *mesh->ptr_mesh_out_b[i];
+                    outputC[j*DIM + i] = *mesh->ptr_mesh_out_b[i];// ptr_mesh_out_b[i] outputs per row: C1i, C2i, C3i, ...
+                #endif
             }
         }
 
