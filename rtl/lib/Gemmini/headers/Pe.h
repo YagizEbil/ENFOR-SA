@@ -153,14 +153,14 @@ void Pe::flipBitOutA(uint8_t bit)
 
 void Pe::flipBitInB(uint8_t bit)
 {
-    uint8_t mask = 1U << bit;
+    uint32_t mask = 1U << bit;
     *(Input_t*)ptr_in_b ^= mask;
 }
 
 
 void Pe::flipBitOutB(uint8_t bit)
 {
-    uint8_t mask = 1U << bit;
+    uint32_t mask = 1U << bit; // in WS this is the partial sum, 32 bits wide
     *(Input_t*)ptr_out_b ^= mask;
 }
 
@@ -172,7 +172,7 @@ void Pe::flipBitOutB(uint8_t bit)
 */
 void Pe::flipBitInD(uint8_t bit)
 {
-    uint8_t mask = 1U << bit;
+    uint32_t mask = 1U << bit;
     *(Input_t*)ptr_in_d ^= mask;
 }
 

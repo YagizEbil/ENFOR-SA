@@ -2,5 +2,8 @@ __pycache__/
 reports/
 bin/
 src_no_stream_bkp/
+logs/
 *.bkp
 *.csv
+*.tsv
+

@@ -106,9 +106,10 @@ if defs.VIT:
             print("Replaced transformer layer 6")
             print(model.head)
 
-            model.head = QuantLinearGemmini(in_features=model.head.in_features, 
-                                            out_features=model.head.out_features, 
-                                            bias=True) 
+            model.head = QuantLinearGemmini(
+                in_features=model.head.in_features, 
+                out_features=model.head.out_features, 
+                bias=True) 
             return 
 
         # replaces all blocks. however, only the target one is computed in Gemmini
@@ -125,9 +126,10 @@ if defs.VIT:
                 print("Replaced transformer layer 0")
                 print(block.attn.qkv)
                 
-                attention.qkv = QuantLinearGemmini(in_features=attention.qkv.in_features, 
-                                                   out_features=attention.qkv.out_features, 
-                                                   bias=True)
+                attention.qkv = QuantLinearGemmini(
+                    in_features=attention.qkv.in_features, 
+                    out_features=attention.qkv.out_features, 
+                    bias=True)
                 
             elif defs.TARGET_LAYER == 1: # layer 1: computes x=QxK  - type QuantMatMul() 
                 # a lot of zeros - check if there was an activation in the prev. layer
@@ -144,24 +146,27 @@ if defs.VIT:
                 print("Replaced transformer layer 3")
                 print(attention.proj)
 
-                attention.proj = QuantLinearGemmini(in_features= attention.proj.in_features, 
-                                                    out_features=attention.proj.out_features, 
-                                                    weight_bit=8, 
-                                                    quant_mode='symmetric')
+                attention.proj = QuantLinearGemmini(
+                    in_features= attention.proj.in_features, 
+                    out_features=attention.proj.out_features, 
+                    weight_bit=8, 
+                    quant_mode='symmetric')
             
             elif defs.TARGET_LAYER == 4: #layer 4 (fc1): the block has an extra 'mlp' before the "Classifier head" - i do not know why - type QuantLinear()
                 print("Replaced transformer layer 4")
                 print(block.mlp.fc1)
                 
-                block.mlp.fc1 = QuantLinearGemmini(in_features=block.mlp.fc1.in_features, 
-                                                   out_features=block.mlp.fc1.out_features)
+                block.mlp.fc1 = QuantLinearGemmini(
+                    in_features=block.mlp.fc1.in_features, 
+                    out_features=block.mlp.fc1.out_features)
             
             elif defs.TARGET_LAYER == 5: # layer 5 (fc2): the block has an extra 'mlp' before the "Classifier head" - i do not know why - type QuantLinear()
                 print("Replaced transformer layer 5")
                 print(block.mlp.fc2)
                 
-                block.mlp.fc2 = QuantLinearGemmini(in_features=block.mlp.fc2.in_features, 
-                                                   out_features=block.mlp.fc2.out_features)
+                block.mlp.fc2 = QuantLinearGemmini(
+                    in_features=block.mlp.fc2.in_features, 
+                    out_features=block.mlp.fc2.out_features)
 
             else:
                 raise("Invalid layer replacement")

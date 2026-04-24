@@ -186,6 +186,17 @@ CONFIG_PARAMS = {
         "mode":      MODE_WS
     },
 
+    "WSDIM64": 
+    {
+        "path":     "CustomGemminiWSTPUSoCConfig",
+        "dim":       64,  
+        "in_bits":   8, 
+        "out_bits":  32, 
+        "in_dtype":  torch.int32, 
+        "out_dtype": torch.int32, 
+        "mode":      MODE_WS
+    },
+    
     "TestConfig": 
     {
         "path":     "TestConfig",

@@ -18,7 +18,7 @@ from src import definitions as defs
 
 # prints the type and position of each fault, in the device level, in the cycle the fault is injected
 #FI_SILENT = False
-FI_SILENT = True
+FI_SILENT = False
 
 class Gemmini:
     def __init__(self, config_key):
