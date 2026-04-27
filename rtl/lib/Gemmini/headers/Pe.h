@@ -386,4 +386,3 @@ typedef vluint32_t   IData;  ///< Verilated pack data, 17-32 bits
 #define VL_OUT(name, msb, lsb) IData name  ///< Declare output signal, 17-32 bits
 
 */
-
