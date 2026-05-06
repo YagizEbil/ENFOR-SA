@@ -24,16 +24,29 @@ class InstrumentedModel(BaseModel):
    
         super().__init__(model_name)
 
+        fiMode = "Software"
+        
+        if defs.FI_GEMM:
+            if defs.ENABLE_GL_FAULT_MODEL:
+                fiMode = "Gates"
+            else:
+                fiMode = "RTL"
+
         print(f"{u.Co['fg'][65]}[InstrumentedModel]:{u.R}")
         print(f"- DNN model: {model_name}")
         print(f"- FI layer:  {defs.TARGET_LAYER}")
         #print(f"- FI layer:  {TargetModel.conv_layers_names[defs.TARGET_LAYER]}/{defs.TARGET_LAYER}")
-        #print(f"- FI mode:   {'Parallel' if defs.TREE_FI_MODE else 'Sequential'}")
-        print(f"- FI level:  {'RTL' if defs.FI_GEMM else 'Software'}")
-
+        print(f"- FI mode:   {'Parallel' if defs.TREE_FI_MODE else 'Sequential'}")
+        print(f"- FI level:  {fiMode}")
+        
         # if using RTL, loads the gemmini device
         if defs.FI_GEMM:
-            gemmini_interface.gemmini_device = gemmini_interface.GemminiOS(conf.CONFIG_KEY)
+            mode = conf.CONFIG_PARAMS[conf.CONFIG_KEY]["mode"]
+
+            if mode == conf.MODE_OS:
+                gemmini_interface.gemmini_device = gemmini_interface.GemminiOS(conf.CONFIG_KEY)
+            else:
+                gemmini_interface.gemmini_device = gemmini_interface.GemminiWS(conf.CONFIG_KEY)
 
         if defs.VIT: # ViT intrumentation for FI
             if defs.FI_GEMM:

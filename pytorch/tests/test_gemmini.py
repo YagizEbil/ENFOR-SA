@@ -28,7 +28,7 @@ import src.definitions as defs
 # OS configs
 #
 #CONFIG_KEY = "OSDIM4"
-CONFIG_KEY = "OSDIM8"
+#CONFIG_KEY = "OSDIM8"
 #CONFIG_KEY = "OSDIM16"
 #CONFIG_KEY = "OSDIM32"
 #CONFIG_KEY = "OSDIM64"
@@ -46,7 +46,7 @@ CONFIG_KEY = "OSDIM8"
 # WS configs
 #
 #CONFIG_KEY = "WSDIM4"
-#CONFIG_KEY = "WSDIM8"
+CONFIG_KEY = "WSDIM8"
 #CONFIG_KEY = "WSDIM64"
 
 #CONFIG_KEY = "TVU_SA"
@@ -324,7 +324,7 @@ class TesterGemmini(unittest.TestCase):
                 #gemmini.add_permanent_fault(
                 #target, row, col, bit, pol, cell, False) # Important: for permanents, one must clear the fault list for the next tests...
 
-                C_gold = torch.mm(self.A, self.B)  # + self.D
+                C_gold = torch.mm(self.A, self.B) + self.D
                 
                 if conf.GEMM_MODE == conf.MODE_OS:
                     #steps_pre = gemmini.preload(self.D)
@@ -332,8 +332,8 @@ class TesterGemmini(unittest.TestCase):
                     steps_flu = gemmini.flush_gemm(self.C, False)
                 else:
                     steps_pre = gemmini.preload(self.B)
-                    steps_str  = gemmini.stream(self.A, self.C) # if D=0
-                    #steps_str  = gemmini.stream_bias(self.A, self.D, self.C)
+                    #steps_str  = gemmini.stream(self.A, self.C) # if D=0
+                    steps_str  = gemmini.stream_bias(self.A, self.D, self.C)
                 gemmini.clear_fault_list()
                 
                 faulty_outputs += not torch.equal(C_gold, self.C)

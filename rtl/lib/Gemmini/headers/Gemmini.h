@@ -43,6 +43,10 @@ public:
     {
         context = new Context (dut, configId_, simOpt.faulty);
         mesh = new Mesh (dut);
+
+    #ifdef USE_GL_INJECTION
+        glMac = new MAC_UNIT();
+    #endif
     }
 
     ~Gemmini()
@@ -54,6 +58,11 @@ public:
 
         if (context != nullptr)
             delete context;
+
+    #if USE_GL_INJECTION
+        if (glMac)
+            delete glMac;
+    #endif
     }
 
     uint32_t resetMesh();
@@ -167,6 +176,10 @@ public:
 
     uint32_t cycle;
     uint32_t sizeFaultList;
+
+#ifdef USE_GL_INJECTION
+    MAC_UNIT *glMac;
+#endif
 
     Mesh *mesh;
     Context *context;
@@ -450,7 +463,64 @@ uint32_t Gemmini::streamOS(
     #endif // ENABLE_PERMANENT_FAULTS
     #endif // ifndef USE_GL_INJECTION
 
+    #ifdef USE_GL_INJECTION // OS
+        /* GL injections: 
+            1. gather the inputs and accumulator state before the next step (this is what the MAC operation is going to use in the next opperation)
+            2. run the RTL step
+            3. compute the same MAC operation at GL (same inputs, same accumulator state)
+            4. replace the Mesh PE output (RTL) with the GL one */
+        if (hasTransientFault && !theTransientFault->performed)
+        {
+            if (WILL_PE_OUTPUT_BE_ASSIGNED(theTransientFault->row, theTransientFault->col, it))
+            {
+                /* pass the inputs to be used in the next MAC computation to the GL mac unit */
+                //glMac->io_in_a = mesh->pe[theTransientFault->row][theTransientFault->col]->getInputA(); // old version. using mediumosconfig_old_pointers.cc
+                //glMac->io_in_b = mesh->pe[theTransientFault->row][theTransientFault->col]->getInputB(); // old version. using mediumosconfig_old_pointers.cc 
+                
+                glMac->io_in_a = mesh->getPrevInputA(theTransientFault->row, theTransientFault->col);
+                glMac->io_in_b = mesh->getPrevInputB(theTransientFault->row, theTransientFault->col);
+                glMac->io_in_c = mesh->pe[theTransientFault->row][theTransientFault->col]->getOutput();
+            }
+        }
+    #endif
+
         cycle = context->step();   // runs a single-cycle DUT step. note that when this executes, the inputs also change again (this is why i saved them before)
+
+    #ifdef USE_GL_INJECTION // OS
+        if (hasTransientFault && !theTransientFault->performed)
+        {   
+            if (WILL_PE_OUTPUT_BE_ASSIGNED(theTransientFault->row, theTransientFault->col, it))
+            {
+                glMac->GlobalFiModInstNr[0] = 1;   // asserts fiEnable
+                //glMac->GlobalFiModInstNr[0] = 0; // [Debug only] disables FI. sanity check ok - this leads to no output errors
+                glMac->GlobalFiSignal = 1;         // aseerts the fault mask. i think it must be a single bit always
+                glMac->GlobalFiNumber = theTransientFault->cell; // points to the target cell
+                
+                /* eval the GL mac unit */
+                glMac->eval();
+            
+                /* gets the faulty output of the GL MAC unit */
+                Output_t glMacOut = glMac->io_out_d; 
+           
+            #if 0 // [Debug only]
+                Output_t goldMesh = mesh->getMacOut(); // gets the output of the PE stored in faultList[0]
+                Output_t goldHost = glMac->io_in_a*glMac->io_in_b + glMac->io_in_c; // golden MAC operation
+                
+                //assert(goldHost == goldMesh); // ok. passed
+                //assert(glMacOut == goldHost);
+
+                /* counts the number of bits flipped in the MAC output w.r.t the golden output */
+                //uint8_t flippedBits = popcount(glMacOut^goldMesh); // TODO: check also the pattern in which the bits are flipped
+                //printf("Flipped bits: %u\n", flippedBits);
+            #endif
+                /* replace the RTL mac uint output with the output computed at GL */
+             
+                mesh->setMacOut(glMacOut);
+                //mesh->setMacOut(goldMesh); // [Debug only]. sanity check ok - this leads to no output errors
+                theTransientFault->performed = true;
+            }
+        }
+    #endif
 
     #ifdef ENABLE_HDFIT_VALIDATION
         finished = it == stream_size_delay_reg + 1;
@@ -514,6 +584,7 @@ uint32_t Gemmini::streamWS(
     mesh->reset();
 
     uint32_t timeout_iters = 10*stream_size_delay_reg;
+    char msg[100];
 
     while (!finished && it < timeout_iters)
     {  
@@ -531,8 +602,8 @@ uint32_t Gemmini::streamWS(
         {
             for(uint8_t r = 0; r < DIM; r++)
             {
-                *mesh->ptr_mesh_in_a[r] = 0;
-                *mesh->ptr_mesh_in_b[r] = 0;
+                *mesh->ptr_mesh_in_a[r] = 0; // these are mesh input signals. it's ok to write them directly here, 
+                *mesh->ptr_mesh_in_b[r] = 0; // the same way we write inputs, even if we inject the internal mesh ctrl signals
             }
         }
 
@@ -578,7 +649,83 @@ uint32_t Gemmini::streamWS(
     #endif // ENABLE_PERMANENT_FAULTS
     #endif // ifndef USE_GL_INJECTION
 
+    #ifdef USE_GL_INJECTION  // WS
+         /* GL injections: 
+            1. gather the inputs and accumulator state before the next step (this is what the MAC operation is going to use in the next opperation)
+            2. run the RTL step
+            3. compute the same MAC operation at GL (same inputs, same accumulator state)
+            4. replace the Mesh PE output (RTL) with the GL one */
+        if (hasTransientFault && !theTransientFault->performed)
+        {
+            //if (WILL_PE_OUTPUT_BE_ASSIGNED(theTransientFault->row, theTransientFault->col, it))
+            if (theTransientFault->ficycle == it)
+            {
+                /* pass the inputs to be used in the next MAC computation to the GL mac unit */
+                glMac->io_in_a = mesh->pe[theTransientFault->row][theTransientFault->col]->getInputA();
+
+                /*  
+                    in WS, the weights are stored in C1
+                    ptr_mesh_in_b is actually transporting the D matrix
+
+                    the first row starts with the D row
+                    the rows below receive the partial sum from the PE above
+                */
+
+                glMac->io_in_b = mesh->pe[theTransientFault->row][theTransientFault->col]->getC2();
+
+                if (theTransientFault->row == 0) // first row. the accumulator starts with the bias D matrix
+                    glMac->io_in_c = mesh->pe[theTransientFault->row][theTransientFault->col]->getInputB(); // WS stream_bias
+                    //glMac->io_in_c = 0; // WS stream
+
+                else // glMac->io_in_c has to receive the out_b (partial sum) of the PE above
+                    glMac->io_in_c = mesh->pe[theTransientFault->row-1][theTransientFault->col]->getOutput();
+            }
+        }
+    #endif
+
         cycle = context->step();   // runs a single-cycle DUT step. note that when this executes, the inputs also change again (this is why i saved them before)
+    
+    #if 0
+        sprintf(msg, "C2 in cycle %d", it);
+        debug_dump_c2((const char*)msg);
+        printf("\n");
+    #endif
+
+    #ifdef USE_GL_INJECTION // WS
+        if (hasTransientFault && !theTransientFault->performed)
+        {   
+            //if (WILL_PE_OUTPUT_BE_ASSIGNED(theTransientFault->row, theTransientFault->col, it))
+            if (theTransientFault->ficycle == it)
+            {
+                glMac->GlobalFiModInstNr[0] = 1;    // asserts fiEnable
+                //glMac->GlobalFiModInstNr[0] = 0;  // [Debug only] disables FI. sanity check ok - this leads to no output errors
+                glMac->GlobalFiSignal = 1;          // aseerts the fault mask. i think it must be a single bit always
+                glMac->GlobalFiNumber = theTransientFault->cell; // points to the target cell
+                
+                /* eval the GL mac unit */
+                glMac->eval();
+            
+                /* gets the faulty output of the GL MAC unit */
+                Output_t glMacOut = glMac->io_out_d; 
+           
+            #if 0 // [Debug only]
+                Output_t goldMesh = mesh->getMacOut(); // gets the output of the PE stored in faultList[0]
+                Output_t goldHost = glMac->io_in_a*glMac->io_in_b + glMac->io_in_c; // golden MAC operation
+                //printf("Gold: %d  glMacOut: %d  computes: %d\n", goldMesh, glMacOut, goldHost);
+
+                assert(goldHost == goldMesh); // ok. passed
+
+                /* counts the number of bits flipped in the MAC output w.r.t the golden output */
+                //uint8_t flippedBits = popcount(glMacOut^goldMesh); // TODO: check also the pattern in which the bits are flipped
+                //printf("Flipped bits: %u\n", flippedBits);
+            #endif
+                /* replace the RTL mac uint output with the output computed at GL */
+                mesh->setMacOut(glMacOut);
+                //mesh->setMacOut(goldMesh); // [Debug only]. sanity check ok - this leads to no output errors
+                theTransientFault->performed = true;
+            }
+        }
+    #endif
 
         LOOP(i,DIM) // stores each of the PEs outputs, if available, and checks for end of simulation
         {
@@ -592,6 +739,7 @@ uint32_t Gemmini::streamWS(
                       // thus preventing from reading the output in the right moment
                       // this was causing trouble when injectin in ptr_propagate, where a full row and a full column would appear faulty
                       // when in reality, only a single colum should be affected (now multiple rows)
+
                 countPeOps[i][j] += *(CData*)mesh->pe[i][j]->ptr_propagate; // When hitting the ptr_propagate signals, countPeOps may not increase, causing a timeout
                 //countPeOps[i][j] += *(CData*)mesh->pe[i][j]->ptr_valid; // same as above
                 if (countPeOps[i][j] == DIM+1) // DIM+1: one extra cycle so that the output appears in the Mesh output

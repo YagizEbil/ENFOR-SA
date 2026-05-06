@@ -19,7 +19,7 @@ def parse_args():
     parser.add_argument("-l", "--layer",      type=int, default=defs.TARGET_LAYER, help="The target injection layer")
     parser.add_argument("-n", "--injections", type=int, default=defs.INJECTIONS,   help="The number of fault injections (sampled from the fault list)")
     parser.add_argument("-f", "--faultlist",  type=str, default=defs.FAULT_LIST,   help="The fault list file. It must be stored in fault_lists/<model>")
-    parser.add_argument("-F", "--fmodel",     type=str, default="rtl", choices=["sw", "rtl"], help="The fault model")
+    parser.add_argument("-F", "--fmodel",     type=str, default="rtl", choices=["sw", "rtl", "gl"], help="The fault model")
 
     # removed for open source
     #parser.add_argument("-t", "--tree",  action='store_true', default=defs.TREE_FI_MODE, help="Use the tree fault injection mode")
@@ -98,8 +98,8 @@ def set_definitions(args):
     #
     # check if we need Gemmini for RTL injection or not
     #
-    defs.FI_GEMM = True if args.fmodel == "rtl" else False
-    #defs.FI_GEMM = True if args.fmodel in ["rtl", "gl"] else False
+    #defs.FI_GEMM = True if args.fmodel == "rtl" else False
+    defs.FI_GEMM = True if args.fmodel in ["rtl", "gl"] else False
 
     #
     # check if the model is any transformer model, and asserts defs.VIT if True
@@ -120,6 +120,4 @@ def set_definitions(args):
     # SW fault injection mode. just an inverted alias...
     #
     defs.FI_SW = not defs.FI_GEMM
-
-    # removed for open source
-    #defs.ENABLE_GL_FAULT_MODEL = True if args.fmodel == "gl" else False
+    defs.ENABLE_GL_FAULT_MODEL = True if args.fmodel == "gl" else False

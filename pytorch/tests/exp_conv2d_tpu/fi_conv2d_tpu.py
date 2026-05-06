@@ -236,7 +236,6 @@ def run_injection_loop():
                     f"radiate/trace/conv_out_samples/fault_{fault.tag}.npz", 
                     full_conv_out_work.reshape(full_conv_out_gold_original_shape).numpy())
                 """
-
         trace_logger.try_dump_item(
             logger.StatsPerFaultGemmini(fault))
 

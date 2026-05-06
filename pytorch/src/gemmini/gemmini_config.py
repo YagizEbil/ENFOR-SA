@@ -196,28 +196,6 @@ CONFIG_PARAMS = {
         "out_dtype": torch.int32, 
         "mode":      MODE_WS
     },
-    
-    "TestConfig": 
-    {
-        "path":     "TestConfig",
-        "dim":       4,  
-        "in_bits":   8, 
-        "out_bits":  32, 
-        "in_dtype":  torch.int32, 
-        "out_dtype": torch.int32, 
-        "mode":      MODE_OS
-    },
-
-    "TVU_SA": 
-    {
-        "path":     "TVU_SA",
-        "dim":       4,  
-        "in_bits":   8, 
-        "out_bits":  32, 
-        "in_dtype":  torch.int32, 
-        "out_dtype": torch.int32, 
-        "mode":      MODE_OS
-    },
 }
 
 #

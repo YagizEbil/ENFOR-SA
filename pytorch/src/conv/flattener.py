@@ -30,16 +30,20 @@ def im2col_quant(conv_model, input_tensor):
         input_tensor = input_tensor - input_zp.view(-1, 1, 1, 1)
 
     # Output shape after unfolding: [batch_size, in_channels * kernel_height * kernel_width, output_height * output_width]
-    input_unfolded = F.unfold(input_tensor.float(),
-                              kernel_size=conv_model.kernel_size, 
-                              stride=conv_model.stride, 
-                              padding=conv_model.padding, 
-                              dilation=conv_model.dilation)
+    input_unfolded = F.unfold(
+        input_tensor.float(),
+        kernel_size=conv_model.kernel_size, 
+        stride=conv_model.stride, 
+        padding=conv_model.padding, 
+        dilation=conv_model.dilation)
 
     batch_size = input_tensor.shape[0]
     out_channels, in_channels, kernel_height, kernel_width = conv_weight.shape
 
-    input_unfolded = input_unfolded.contiguous().view(batch_size, in_channels * kernel_height * kernel_width, -1)
+    input_unfolded = input_unfolded.contiguous().view(
+        batch_size, 
+        in_channels * kernel_height * kernel_width, 
+        -1)
 
     #return torch.transpose(input_unfolded[0], 0, 1), torch.transpose(conv_weight_flat, 0, 1)
     #return conv_weight_flat, input_unfolded[0]
@@ -70,11 +74,12 @@ def im2col(conv_model, input_tensor):
     conv_weight = conv_model.weight
 
     # Output shape after unfolding: [batch_size, in_channels * kernel_height * kernel_width, output_height * output_width]
-    input_unfolded = F.unfold(input_tensor, 
-                              kernel_size=conv_model.kernel_size, 
-                              stride=conv_model.stride, 
-                              padding=conv_model.padding, 
-                              dilation=conv_model.dilation)
+    input_unfolded = F.unfold(
+        input_tensor, 
+        kernel_size=conv_model.kernel_size, 
+        stride=conv_model.stride, 
+        padding=conv_model.padding, 
+        dilation=conv_model.dilation)
 
     batch_size = input_tensor.shape[0]
     out_channels, in_channels, kernel_height, kernel_width = conv_weight.shape
@@ -82,7 +87,10 @@ def im2col(conv_model, input_tensor):
     # Reshape conv_weight to [out_channels, in_channels * kernel_height * kernel_width]
     conv_weight_flat = conv_weight.contiguous().view(out_channels, -1)  # Flatten weight for matmul
 
-    input_unfolded = input_unfolded.contiguous().view(batch_size, in_channels * kernel_height * kernel_width, -1)
+    input_unfolded = input_unfolded.contiguous().view(
+        batch_size, 
+        in_channels * kernel_height * kernel_width, 
+        -1)
 
     return torch.transpose(input_unfolded[0], 0, 1), torch.transpose(conv_weight_flat, 0, 1)
     #return conv_weight_flat, input_unfolded[0]

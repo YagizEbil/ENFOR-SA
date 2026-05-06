@@ -187,15 +187,11 @@ void Mesh::loadPointers()
             pe[i][j]->ptr_out_a = out_a[i][j];      
             pe[i][j]->ptr_out_b = out_b[i][j]; 
 
-            // TODO: check this. i can only inject in the following signals
-            #if GEMM_WS
-                pe[i][j]->ptr_out_c = out_c[i][j];
-            #else
-                pe[i][j]->ptr_out_c = out_c[i][j];
+            pe[i][j]->ptr_out_c = out_c[i][j];
+
+            #if GEMM_OS
                 pe[i][j]->ptr_mac_out_d = pe_io_out[i][j];
             #endif
-            // but in the following signals the fault is always masked...
-            //pe[i][j]->ptr_out_c = out_c[i][j];
  
             pe[i][j]->ptr_c1 = pe_c1[i][j];
             pe[i][j]->ptr_c2 = pe_c2[i][j];

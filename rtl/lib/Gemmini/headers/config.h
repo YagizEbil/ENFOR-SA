@@ -37,7 +37,10 @@
 // If we enable the integration of Gemmini with a single gate-level MAC uint
 #ifdef USE_GL_INJECTION
     // Code removed for open source
-#   error "Galte-level FI not available as open source"
+//#   error "Galte-level FI not available as open source"
+#   include "../../../verilated/MacUnit_netlist_hdfit/VMacUnit_netlist_hdfit.h"
+#   include "../../../verilated/MacUnit_netlist_hdfit/VMacUnit_netlist_hdfit___024root.h"
+#   define MAC_UNIT VMacUnit_netlist_hdfit
 #endif
 
 

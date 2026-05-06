@@ -31,11 +31,10 @@ gemmini_config_key="OSDIM8"
 #gemmini_config_key="WSDIM8"
 #gemmini_config_key="WSDIM64"
 
-
 #
 # The desired fault model
 #
-fault_model="rtl"
+fault_model="gl"
 
 #
 # An experiment description for bookkeeping
@@ -45,7 +44,7 @@ experiment_description="Standard sequential injection approach at RTL. Injection
 #
 # A simulation alias for bookkeeping - this is attatched to the report file names
 #
-sim_alias="simulation-xxx"
+sim_alias="simulation-gl-xyz"
 
 #
 # The fault list. It must be located in the path fault_lists/$model
@@ -57,17 +56,17 @@ fault_list="fl_os_dim_8.csv"
 #
 # The number of faults to be injected for each input in each target layer
 #
-injections=500
+injections=100
 
 #
 # The number of inputs per batch (16 is the best case for my pc)
 #
-batch_size=32
+batch_size=8
 
 #
 # The number batches
 #
-nbatches=20
+nbatches=1
 
 #
 # A simulation seed (this goes to the report file name)
@@ -78,8 +77,8 @@ seed=0
 # The number of PyTorch inter and intra op threads (see https://docs.pytorch.org/docs/stable/notes/cpu_threading_torchscript_inference.html)
 # (set a huge value, e.g., 1000, to adjust to the max possible number)
 #
-inter_threads=16
-intra_threads=16
+inter_threads=2
+intra_threads=2
 
 #
 # The model name and layers come from run.sh

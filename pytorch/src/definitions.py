@@ -37,8 +37,8 @@ DEVICE = "cuda" if CUDA else "cpu"
 #
 FI_SW = not FI_GEMM
 
-#ENABLE_GL_FAULT_MODEL = False # removed for open source
-
+ENABLE_GL_FAULT_MODEL = False
+TREE_FI_MODE = False
 
 #
 # Available CNN and ViT models
