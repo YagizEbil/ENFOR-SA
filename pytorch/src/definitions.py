@@ -1,4 +1,5 @@
 import os
+import warnings
 
 #
 # Full path to the ImageNet dataset
@@ -6,7 +7,14 @@ import os
 PATH_IMAGENET = os.environ.get("PATH_IMAGENET")
 
 if PATH_IMAGENET is None:
-    raise RuntimeError("PATH_IMAGENET is not set. Run 'export PATH_IMAGENET=<Path to ImageNet>'")
+    #raise RuntimeError("PATH_IMAGENET is not set. Run 'export PATH_IMAGENET=<Path to ImageNet>'")
+    warnings.warn("PATH_IMAGENET not set. Using toy inputs only.", UserWarning)
+    # load toy cases only
+    PATH_IMAGENET="./datasets/toy-inputs/ImageNet/"
+
+# cao3: export PATH_IMAGENET=/local2/ImageNet/
+# g5k:  export PATH_IMAGENET=/srv/storage/taran@storage2.rennes.grid5000.fr/DeepLearning/datasets/ImageNet
+
 
 """
     Fixed default options. These options are overwritten in src/flist/fl.py. do not touch them here
@@ -37,8 +45,10 @@ DEVICE = "cuda" if CUDA else "cpu"
 #
 FI_SW = not FI_GEMM
 
-ENABLE_GL_FAULT_MODEL = False
+ENABLE_GL_FAULT_MODEL = False # removed for open source
 TREE_FI_MODE = False
+PRUNE_INPUTS = False
+RUN_PAR_FI = False
 
 #
 # Available CNN and ViT models
@@ -67,7 +77,7 @@ CAMP_ALIAS = "experiment-xxx"
 FAULT_LIST = "fl_os_dim_8.csv" if FI_GEMM else "fl_sw.csv"
 
 # Destination path to the report file names
-EXP_FOLDER = "reports/ResNet18/experiment-xxx/sequential"
+EXP_FOLDER = "reports/"
 
 # The number of batches
 BATCHES = 1

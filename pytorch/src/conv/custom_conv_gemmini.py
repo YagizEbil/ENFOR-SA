@@ -35,6 +35,11 @@ class CustomConv:
         self.input_ids = np.arange(0, defs.BATCH_SIZE+1) # for now we set this externally
         self.batch_id = 0
         self.conv_type = -1
+
+        # list of faults with collisions for the parallel approach
+        # if two faults hit the same tile, we avoid one of them, and add it to this list
+        # the 'collided' faults are then added back to the fault list for further trials until the list is empty
+        self.fault_list_collision: defaultdict[int, fl.Fault] = defaultdict(fl.Fault)
         self.prepared = False #  this must be set to False for every new target conv layer. See in InstrumentedModel how this used...
 
 
@@ -101,23 +106,12 @@ class CustomConv:
         tile_i_col,    # The input tile col positon
         preload_bias_hw=True, # preloads the bias matrix in the SA (for FI, this is not actually mandatory)
         gemmini_fault=None    # The Gemmini fault position of type fl.GemminiPos
-        ): 
+        ): #: Optional[fl.GemminiPos] = None):
 
         # extracts the weight and input tiles
         # note that the zero points are already subtracted from self.weights_flat and input_im2col
-        w_tile = tile_ops.extract_tile(
-            self.weights_flat, 
-            tile_w_row, 
-            tile_w_col, 
-            conf.DIM
-        )
-
-        i_tile = tile_ops.extract_tile(
-            input_im2col,
-            tile_i_row, 
-            tile_i_col, 
-            conf.DIM
-        )
+        w_tile = tile_ops.extract_tile(self.weights_flat, tile_w_row, tile_w_col, conf.DIM)
+        i_tile = tile_ops.extract_tile(input_im2col,      tile_i_row, tile_i_col, conf.DIM)
 
         # keeps track of the different levels in which fault masking can occur during convolution
         gemm_msk = scale_msk = round_msk = clamp_msk = False
@@ -125,24 +119,15 @@ class CustomConv:
         if self.is_per_tensor_qtz:
             weight_scale_tile = self.weight_scale_exp   
         else:
-            weight_scale_tile = tile_ops.extract_fp_tile(
-                self.weight_scale_exp, 
-                tile_w_row, 
-                tile_w_col, 
-                conf.DIM
-            )
+            weight_scale_tile = tile_ops.extract_fp_tile(self.weight_scale_exp, tile_w_row, tile_w_col, conf.DIM)
 
+        # expands the bias so that i can extract the tile that matters for this position
+        # TODO: this could be done offline once per layer in load_params(), but i need the input shape (solve this somehow) 
         if preload_bias_hw:
-            # expands the bias so that i can extract the tile that matters for this position
             bias_exp = self.bias.unsqueeze(1).expand(-1, input_im2col.shape[1]) # expands the bias to the shape [A_rows, B_cols]
 
             # extracts only the bias portion that matters - as i'm computing a single matmul tile
-            bias_tile = tile_ops.extract_fp_tile(
-                bias_exp, 
-                tile_w_row, 
-                tile_i_col, 
-                conf.DIM
-            )
+            bias_tile = tile_ops.extract_fp_tile(bias_exp, tile_w_row, tile_i_col, conf.DIM)
 
             # Convert to int32 and perform 32 bit add
             bias_tile_q = bias_tile/(self.input_scale*weight_scale_tile)
@@ -159,6 +144,7 @@ class CustomConv:
 
         # performs the tile matmul in Gemmini
         z_gemm = igemm.gemmini_device.matmul(w_tile, i_tile)
+        #print(f"{igemm.gemmini_device.cycles_preload}\t{igemm.gemmini_device.cycles_compute}\t{igemm.gemmini_device.cycles_flush}")
 
         # computes the golden tile result
         z_gold = torch.mm(w_tile, i_tile) 
@@ -181,6 +167,10 @@ class CustomConv:
         # TODO: check if this should be compiled ahead of time
         z_out_gold = z_int_gold*self.input_scale*weight_scale_tile/self.output_scale + self.z_zero_point
         z_out_gemm = z_int_gemm*self.input_scale*weight_scale_tile/self.output_scale + self.z_zero_point
+
+        #if (z_out_gold > 255).sum() > 0: print("[Debug]: case 5") # never happens. z_out_gold is alwas < 255 due to proper scaling and zero_point
+        # QuantizedConv2d:     z_out_gold is always positive because the + self.z_zero_point
+        # QuantizedConvReLU2d: z_out_gold can have negative values - the + self.z_zero_point does not shift them to positive -> these will be clamped by the activation
 
         scale_msk = not gemm_msk and torch.equal(z_out_gemm, z_out_gold)  # was the fault masked in the scaling?
         
@@ -210,6 +200,11 @@ class CustomConv:
             if clamp_msk:
                 return None, None, [gemm_msk, scale_msk, round_msk, clamp_msk]
        
+        #else: # QuantizedConv2d. Note: QuantizedConv2d does not have a clamp, therefore it can propagate more faults
+            #here, z_out_gold is always positive because the + self.z_zero_point. 
+            #if (z_out_gold > 255).sum() > 0: print("[Debug]: case 3") # z_out_gold never overflows - due to proper scaling and zp
+            #if (z_out_gold < 0).sum() > 0: print("[Debug]: case 4")   # never happens
+
         # rounding to 8 bits
         z_out_gold = z_out_gold.to(torch.uint8)
         z_out_gemm = z_out_gemm.to(torch.uint8)
@@ -234,19 +229,86 @@ class CustomConv:
         
         C_tile_gemm, C_tile_gold, msk_levels = self.gemmini_os_compute_tile(
             input_im2col, 
-            fault.tile.a_row, fault.tile.a_col, 
-            fault.tile.b_row, fault.tile.b_col,
+            fault.tile.a_row, 
+            fault.tile.a_col, 
+            fault.tile.b_row, 
+            fault.tile.b_col,
             preload_bias_hw=True,
             gemmini_fault=fault.gemm
-        )
+            )
 
         return C_tile_gemm, C_tile_gold, msk_levels, fault.tile.a_row, fault.tile.b_col
+
+
+    # computes multiple tile convolutions with Gemmini, sweeping the fault list and applying one fault per matmul
+    def matmul_multiple_tiles(self, input_im2col, ret_tensor):
+        injected_tiles = {}  # flags each affected tile
+
+        ret_tensor = ret_tensor.reshape(self.weights_flat.shape[0], -1)
+
+        self.fault_list_collision.clear()
+   
+        msk_levels = [True, True, True, True] # marks as True only if True for all faults in the loop below
+   
+        while fl.fault_list:
+            # reads the next fault in the list
+            fault = fl.fault_list.popleft()
+
+            tile_key = (fault.tile.a_row, fault.tile.b_col)
+
+            # prevents injecting in the same tile twice
+            if tile_key not in injected_tiles:
+                C_tile_gemm, C_tile_gold, msk_levels_fault = self.gemmini_os_compute_tile(
+                    input_im2col, 
+                    fault.tile.a_row, 
+                    fault.tile.a_col, 
+                    fault.tile.b_row, 
+                    fault.tile.b_col,
+                    preload_bias_hw=True,
+                    gemmini_fault=fault.gemm
+                    )
+                
+                injected_tiles[tile_key] = 1
+
+                masked_at_any_level = any(msk_levels_fault)
+
+                for i in range(MASK_LEVELS):
+                    msk_levels[i] = msk_levels[i] and msk_levels_fault[i]
+
+                if not masked_at_any_level:
+                    ret_tensor = tile_ops.sub_tile(
+                        ret_tensor, 
+                        C_tile_gold, 
+                        fault.tile.a_row, 
+                        fault.tile.b_col, 
+                        conf.DIM
+                    )
+
+                    ret_tensor = tile_ops.sum_tile(
+                        ret_tensor, 
+                        C_tile_gemm, 
+                        fault.tile.a_row, 
+                        fault.tile.b_col, 
+                        conf.DIM
+                    )
+
+                del C_tile_gemm
+                del C_tile_gold
+
+            else: # if this tile was already injected in a previous iteraction, then this fault must be added back to the fault list for injection latter
+                self.fault_list_collision[fault.tag] = fault
+
+        return ret_tensor, msk_levels
 
 
     # the custom convolution operation
     def conv(self, conv_model, input_tensor, input_id, layer_id=0):
         # load the flattened input from the LUT. the input is flattened if it's not in the LUT
-        input_im2col = tcache.load_cached_inputs(conv_model, input_tensor, input_id)
+        input_im2col = tcache.load_cached_inputs(
+            conv_model, 
+            input_tensor, 
+            input_id
+        )
 
         # the inputs use per-tensor qtz. so the input is a single float value (has no shape)
         self.input_scale, _  = flattener.get_scales_and_zero_points(input_tensor)
@@ -265,36 +327,43 @@ class CustomConv:
 
         shape_old = gold_tensor.shape
 
-        # Calculates the matmul (for both Gemmini and golden) of a single conv tile. the random tile positions are returned in repl_row, repl_col
-        mmul_gemm, mmul_gold, msk_levels, repl_row, repl_col = self.matmul_random_tile(input_im2col)
-        masked_at_any_level = any(msk_levels)
+        if defs.TREE_FI_MODE or defs.RUN_PAR_FI:
+            ret_tensor, msk_levels = self.matmul_multiple_tiles(input_im2col, gold_tensor)
+            masked_at_any_level = any(msk_levels)
 
-        if masked_at_any_level:
+            if masked_at_any_level:  # not defs.RUN_GOLDEN_MODE can be set to False for debug/sanity purposes only
+                return gold_tensor, msk_levels
+        else:
+            # Calculates the matmul (for both Gemmini and golden) of a single conv tile. the random tile positions are returned in repl_row, repl_col
+            mmul_gemm, mmul_gold, msk_levels, repl_row, repl_col = self.matmul_random_tile(input_im2col)
+            masked_at_any_level = any(msk_levels)
+
+            if masked_at_any_level:
+                del mmul_gold
+                del mmul_gemm
+                return gold_tensor, msk_levels
+
+            gold_tensor = gold_tensor.reshape(self.weights_flat.shape[0], -1)
+
+            # replaces the gold tile by the faulty one
+            ret_tensor = tile_ops.sub_tile(
+                gold_tensor, 
+                mmul_gold, 
+                repl_row, 
+                repl_col, 
+                conf.DIM
+            )
+
+            ret_tensor = tile_ops.sum_tile(
+                ret_tensor,  
+                mmul_gemm, 
+                repl_row, 
+                repl_col, 
+                conf.DIM
+            )
+
             del mmul_gold
             del mmul_gemm
-            return gold_tensor, msk_levels
-
-        gold_tensor = gold_tensor.reshape(self.weights_flat.shape[0], -1)
-
-        # replaces the gold tile by the faulty one
-        ret_tensor = tile_ops.sub_tile(
-            gold_tensor, 
-            mmul_gold, 
-            repl_row, 
-            repl_col, 
-            conf.DIM
-        )
-
-        ret_tensor = tile_ops.sum_tile(
-            ret_tensor,  
-            mmul_gemm, 
-            repl_row, 
-            repl_col, 
-            conf.DIM
-        )
-
-        del mmul_gold
-        del mmul_gemm
 
         ret_tensor = ret_tensor.reshape(shape_old)
         return ret_tensor, msk_levels
@@ -309,23 +378,53 @@ class CustomConv:
 
         tensors = []
         msk_levels_inputs = [[False, False, False, False] for _ in range(batch_input_tensor.shape[0])]
+        
+        if defs.TREE_FI_MODE: 
+            # in the tree approach we must keep track of fault colisions
+            # initially we store the full fault list to be injected in base_fl
+            # every call to self.conv removes faults from the fault list, 
+            # so we need to load the fault list again for every new input (by reading from base_fl again)
+            # after all inputs are processed, any faults that collided are kept in the self.fault_list_collision list
+            # we must add these faults back to the list
 
-        for i, input_tensor in enumerate(batch_input_tensor):  
-            # runs the conv for this input batch. this will make the fault list empty
-            ret_tensor, msk_levels = self.conv(
-                conv_model, 
-                input_tensor.unsqueeze(0), 
-                self.input_ids[i], 
-                layer_id
-            )
+            base_fl = fl.fault_list.copy()
+        
+            for i, input_tensor in enumerate(batch_input_tensor):  
+                # sets the same fault list for the next batch 
+                fl.fault_list = base_fl.copy()
+                
+                # runs the conv for this input batch. this will make the fault list empty
+                ret_tensor, msk_levels = self.conv(
+                    conv_model, 
+                    input_tensor.unsqueeze(0), 
+                    self.input_ids[i], 
+                    layer_id
+                )
 
-            tensors.append(ret_tensor)
+                tensors.append(ret_tensor)
 
-            for m in range(MASK_LEVELS):
-                msk_levels_inputs[i][m] = msk_levels[m]
+                for m in range(MASK_LEVELS):
+                    msk_levels_inputs[i][m] = msk_levels[m]
+
+            # add faults with collisions back to the fault list
+            # any repeated tiles (collision) in the fault list were not injected due to tile collision
+            # if there was collisions, the fault list should be run again (externally) until it is exhausted
+            fl.fault_list.extend(self.fault_list_collision.values())
+
+        else: # sequential approach. there's a single fault stored in fl.next_fault (no fault lists are used here)
+            for i, input_tensor in enumerate(batch_input_tensor):                  
+                ret_tensor, msk_levels = self.conv(
+                    conv_model, input_tensor.unsqueeze(0), 
+                    self.input_ids[i], 
+                    layer_id
+                )
+
+                tensors.append(ret_tensor)
+                for m in range(MASK_LEVELS):
+                    msk_levels_inputs[i][m] = msk_levels[m]
 
         merged_int = torch.cat([t.int_repr() for t in tensors], dim=0)
-
+        
         merged_tensors = torch._make_per_tensor_quantized_tensor(
             merged_int, 
             tensors[0].q_scale(), 

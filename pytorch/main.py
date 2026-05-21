@@ -7,10 +7,11 @@ from src.models.instrumented_model import InstrumentedModel
 from src.models.base_model import BaseModel
 import src.utils.dataset_loader as dataloader
 import src.experiment.experiment_sequential as exp_seq
+import src.experiment.experiment_parallel as exp_par
 import src.experiment.experiment as exp
 import src.sim_options as simopt
 import src.utils.utils as u
-
+import src.toy_inputs as ti
 
 def init():
     print(f"{u.Co['fg'][65]}[Setting threads]:{u.R}")
@@ -34,16 +35,24 @@ def main():
     model_golden = BaseModel(defs.MODEL_NAME)
     model_faulty = InstrumentedModel(defs.MODEL_NAME)
     
-    experiment = exp_seq.ExperimentSequential(
-        model_faulty=model_faulty, 
-        model_golden=model_golden
-        ) 
+    if defs.TREE_FI_MODE:
+        experiment = exp_par.ExperimentParallel(
+            model_faulty=model_faulty, 
+            model_golden=model_golden
+            )
+    else:
+        experiment = exp_seq.ExperimentSequential(
+            model_faulty=model_faulty, 
+            model_golden=model_golden
+            ) 
 
     #generates a random set of indices. inputs are loaded from the dataset based on the indices
     input_indices = u.random_indices(
         size=defs.BATCHES*defs.BATCH_SIZE, 
         max=dataloader.dataset_len-1
         )
+
+    #input_indices = ti.toy_inputs_low_avf[0:8]
 
     critical_faults = experiment.run_experiment(input_indices)
 

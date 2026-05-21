@@ -1,10 +1,20 @@
-# Simulation parameters
+# Simulation parameters 
+# This is an experiment script that defines experiment parameters. Among other things, this script defines:
+# 	$experiment: An experiment name (will be the report folder name);
+# 	$gemmini_config_key: A systolic array configuration (examples provided);
+# 	$fault_model: The fault injection mode (options are “sw”, “rtl”, and “gl”);
+# 	$experiment_description: a brief description of the experiment;
+# 	$sim_alias: used as the part of the report files names;
+# 	$fault_list: A fault list file (stored in the folder python/fault_lists);
+# 	$injections: The number of faults to inject;
+# 	$batch_size: The input batch size (ideal depends on the PC);
+# 	$nbatches: The number of batches to inject.
 
 #
 # The experiment report files. Those are placed in the folder reports/$model/$experiment. Each experiment type should be placed in its own folder
 #
-experiment="debug-rtl"
-
+#experiment="debug"
+experiment="exp-rtl-v1"
 #
 # The Gemmini configuration key (only valid for RTL/GL injection). See all available config keys in gemmini_config.py
 #
@@ -46,7 +56,7 @@ experiment_description="Standard sequential injection approach"
 #
 # A simulation alias for bookkeeping - this is attatched to the report file names
 #
-sim_alias="simulation-xxx"
+sim_alias="sim-xyz"
 
 #
 # The fault list. It must be located in the path fault_lists/$model
@@ -75,7 +85,7 @@ batch_size=8
 #
 # The number batches
 #
-nbatches=1
+nbatches=20
 
 #
 # A simulation seed (this goes to the report file name)

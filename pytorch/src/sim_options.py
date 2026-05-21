@@ -22,8 +22,8 @@ def parse_args():
     parser.add_argument("-F", "--fmodel",     type=str, default="rtl", choices=["sw", "rtl", "gl"], help="The fault model")
 
     # removed for open source
-    #parser.add_argument("-t", "--tree",  action='store_true', default=defs.TREE_FI_MODE, help="Use the tree fault injection mode")
-    #parser.add_argument("-p", "--prune", action='store_true', default=defs.PRUNE_INPUTS, help="Prune golden inputs in the fault tree mode")
+    parser.add_argument("-t", "--tree",  action='store_true', default=defs.TREE_FI_MODE, help="Use the tree fault injection mode")
+    parser.add_argument("-p", "--prune", action='store_true', default=defs.PRUNE_INPUTS, help="Prune golden inputs in the fault tree mode")
 
     # other options
     parser.add_argument("-E", "--th_inter", type=int, default=defs.N_INTER_THREADS, help="The number inter_op threads")
@@ -45,9 +45,10 @@ def parse_args():
 #
 # all ViT models available
 #
-vit_models = ["deit_tiny", "deit_small", "deit_base",
-              "swin_tiny", "swin_small", "swin_base",
-              "vit_base", "vit_large"]
+vit_models = [
+    "deit_tiny", "deit_small", "deit_base",
+    "swin_tiny", "swin_small", "swin_base",
+    "vit_base", "vit_large"]
               
 
 def set_definitions(args):
@@ -80,7 +81,10 @@ def set_definitions(args):
     defs.INJECTIONS = args.injections
     defs.FAULT_LIST = args.faultlist
     defs.CAMP_ALIAS = f"{args.alias}"
-    
+
+    defs.TREE_FI_MODE = args.tree
+    defs.PRUNE_INPUTS = args.prune
+
     defs.N_INTER_THREADS = args.th_inter
     defs.N_INTRA_THREADS = args.th_intra
 
@@ -98,8 +102,8 @@ def set_definitions(args):
     #
     # check if we need Gemmini for RTL injection or not
     #
-    #defs.FI_GEMM = True if args.fmodel == "rtl" else False
     defs.FI_GEMM = True if args.fmodel in ["rtl", "gl"] else False
+    #defs.FI_GEMM = True if args.fmodel in ["rtl", "gl"] else False
 
     #
     # check if the model is any transformer model, and asserts defs.VIT if True
@@ -120,4 +124,7 @@ def set_definitions(args):
     # SW fault injection mode. just an inverted alias...
     #
     defs.FI_SW = not defs.FI_GEMM
+
+    # removed for open source
     defs.ENABLE_GL_FAULT_MODEL = True if args.fmodel == "gl" else False
+

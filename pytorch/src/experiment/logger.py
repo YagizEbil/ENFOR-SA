@@ -13,6 +13,7 @@ SKIP_LOGS = False
 SKIP_TRACE_LOG = SKIP_LOGS
 SKIP_BATCH_LOG = SKIP_LOGS
 SKIP_NODES_LOG = True
+SKEE_TREE_DSE_LOG = SKIP_LOGS
 
 
 # the stats for each fault injection trial (for each individual input)
@@ -28,7 +29,7 @@ class StatsPerFault:
     # app-level errors (not stored in the Fault class...)
     sdc1: bool=False  # top1 label != golden label (a.k.a, a critical fault)
     sdc5: bool=False  # top1 label is none of the top5 golden labels
-    
+
     # the CSV header for the data StatsPerFault
     if defs.FI_GEMM:
         header = [
@@ -38,11 +39,13 @@ class StatsPerFault:
             'layer', 'tile_row', 'tile_col',
             # the gemmine fault positions
             'target', 'pe_row', 'pe_col', 'bit',        
+           
             # flags for the fault outcomes in the end layer
             'sdc1',        # the top1 predicted work label differs from the golden label
             'sdc5',        # the top1 predicted work label is none of the top5 golden labels
+
             # flags for the fault outcomes in the injection layer
-            'gemm_msk', 'scale_msk', 'round_msk', 'clamp_msk'
+            'gemm_msk', 'scale_msk', 'round_msk', 'clamp_msk', 'qtz_msk', 
         ]
 
     else: # SW Injection headers
@@ -56,6 +59,7 @@ class StatsPerFault:
                 'sdc1',        # the top1 predicted work label differs from the golden label
                 'sdc5',        # the top1 predicted work label is none of the top5 golden labels
             ]
+
         else:
             header = [
                 'input_id', 
@@ -69,10 +73,73 @@ class StatsPerFault:
                 'sdc5',        # the top1 predicted work label is none of the top5 golden labels
             ]
 
+    # [Parallel mode only]: tree parameters
+    if defs.TREE_FI_MODE:
+        tree_id: int=0
+        tree_k: int=0
+        tree_h: int=0
+        th_conf_score_gap: float=0 # only prune inputs if the the top1 - top2 confidence gap is higher than this threshold    
+        header.extend(['tree_id', 'k', 'h', 'conf_score_th'])
+
+
+@dataclass
+class StatsTreeDSE:
+    batch_id:int=0
+    tree_id:int=0
+    tree_k: int=0  # the number of child nodes
+    tree_h: int=0   # the hight
+    trees: int=0 # the required number of trees to fit all injections with trees of shape (k, h)
+    failed_leaves: int=0 # the total number of critical faults (sum of all failed leaves accross all trees)
+    layer:int=0
+    time: int=0
+
+    header = [
+        'batch_id', 
+        'tree_id', 
+        'k', 
+        'h', 
+        'trees', 
+        'critical_faults',
+        'layer', 
+        'time'
+    ]
+
+
 # the batch-level stats for the parallel (tree) fault injection approach
 @dataclass
 class StatsPerBatchParallel:
-   header = []
+    # input id and targets
+    batch_id:  int=0  # the batch id
+    tgt_layer: int=0  # target conv layer id
+    failed_leaves:  int=0    # the number of critical reached leaves in the tree (a.k.a, critical_faults)
+    reached_leaves: int=0    # the number of reached leaves in the tree
+    visited_nodes:  int=0
+    tree_id: int=0
+    tree_k: int=0  # the tree parameter (number of children nodes)
+    tree_h: int=0,
+    max_reached_level: int=0 # the maximum level reached in the tree
+    batch_gold_accuracy:     float=0  # the golden accuracy for the batch
+    avg_batch_work_accuracy: float=0  # the average batch accuracy after a set of injections (avg across all injections) 
+    avg_batch_accuracy_drop: float=0  # the average accuracy drop of avg_batch_work_accuracy w.r.t  batch_gold_accuracy
+    avg_injection_time: float=0       # the average inj. time in seconds
+    th_conf_score_gap: float=0 
+
+    # the CSV header for the data StatsPerBatchParallel
+    header = [
+        'batch_id',
+        'layer',   
+        'critical_faults',
+        'reached_leaves', 
+        'visited_nodes', 
+        'tree_id', 'k', 'h',
+        'max_level',
+        'avg_batch_gold_acc', 
+        'avg_batch_work_acc', 
+        'avg_batch_acc_drop',
+        'injection_time',
+        'conf_score_th'
+    ]
+
 
 # the batch-level stats for the sequential fault injection approach
 @dataclass
@@ -112,9 +179,39 @@ class AccDropStatus:
 
 @dataclass
 class StatsPerNode:
-    header=[]
+    node_id: int
+    batch_id: int
+    visits: int
+    criticality: float
+
+    tree_id: int=0
+    tree_k:int=0
+    tree_h:int=0
+    header = [
+        "node_id", 
+        "batch_id",
+        'tree_id',
+        'k', 
+        'h'
+        "visits", 
+        "criticality",  
+    ]
 
 
+@dataclass
+class StatsInputConfidence:
+    # input id and targets
+    input_id:  int=0
+    pred_correct: int=0
+    top1_score: float=0
+    top2_score: float=0
+
+    header=[
+        "input_id",
+        "pred_correct",
+        "top1_score",
+        "top2_score"
+    ]
 
 # which type of log is this (StatsPerFault, StatsPerBatchParallel, StatsPerBatchSequential,...). used to properly dump the data to the CSV file
 
@@ -129,12 +226,20 @@ TYPE_STATS_PER_BATCH_SEQUENTIAL = 3
 # logs the nodes' information for the tree injection approach
 TYPE_STATS_PER_NODE  = 4
 
+# logs for the k,h tree dse
+TYPE_TREE_DSE = 5
+
+# the PDF for the input conf. scores
+TYPE_STATS_CONFIDENCE = 6
+
 HEADERS = [ 
     StatsPerFault.header,           # TYPE_STATS_PER_FAULT
     StatsPerFault.header,           # TYPE_STATS_PER_FAULT_SW 
     StatsPerBatchParallel.header,   # TYPE_STATS_PER_BATCH_PARALLEL
     StatsPerBatchSequential.header, # TYPE_STATS_PER_BATCH_SEQUENTIAL
-    StatsPerNode.header             # TYPE_STATS_PER_NODE
+    StatsPerNode.header,            # TYPE_STATS_PER_NODE
+    StatsTreeDSE.header,
+    StatsInputConfidence.header
 ]
 
 MAX_BUFF_SIZE = 100 # the StatsPerFault log buffers are flushed everytime they reach this size 
@@ -160,13 +265,18 @@ class Logger:
                     writer = csv.writer(file, delimiter='\t')
                     writer.writerow(self.header)
 
+
     # buffers a new log item. if the buffer is full, dump it to the csv file
     def try_dump_item(self, new_item):
         if self.skip_log: return 
         
         self.buffer.append(new_item)
 
-        if self.log_type == TYPE_STATS_PER_FAULT or self.log_type == TYPE_STATS_PER_NODE: # not using buffer for the other log types...
+        if self.log_type == TYPE_STATS_PER_FAULT or \
+           self.log_type == TYPE_STATS_CONFIDENCE or \
+           self.log_type == TYPE_STATS_PER_NODE: 
+
+           # not using buffer for the other log types...
             if len(self.buffer) >= MAX_BUFF_SIZE:
                 self.dump_to_csv()
         else:
@@ -176,7 +286,6 @@ class Logger:
     # buffers the item and dumps it to the csv file
     def dump_item(self, new_item):
         if self.skip_log: return 
-        
         self.buffer.append(new_item)
         self.dump_to_csv()
 
@@ -185,58 +294,116 @@ class Logger:
         # dumps the buff to the CSV log file
         with open(self.output_fn, mode='a', newline='') as file:
             writer = csv.writer(file, delimiter='\t')
-            if self.log_type == TYPE_STATS_PER_FAULT: 
+
+            if self.log_type == TYPE_STATS_CONFIDENCE:
                 for stats in self.buffer:
                     writer.writerow(
+                    [
+                        stats.input_id,
+                        stats.pred_correct,
+                        f"{stats.top1_score:.4f}",
+                        f"{stats.top2_score:.4f}",
+                    ]
+                )
+
+            elif self.log_type == TYPE_TREE_DSE:
+                for stats in self.buffer:
+                      writer.writerow(
                         [
-                            stats.input_id,
-                            stats.fault.tag,
-                            stats.tgt_layer,
-                            stats.fault.tile.a_row,
-                            stats.fault.tile.b_col,
-                            stats.fault.gemm.target,
-                            stats.fault.gemm.pe_row,
-                            stats.fault.gemm.pe_col,
-                            stats.fault.gemm.bit,  # TODO: log also the cell for GL injections?
-                            int(stats.sdc1),
-                            int(stats.sdc5),
-                            int(stats.fault.status.msk_gemm),
-                            int(stats.fault.status.msk_scale),
-                            int(stats.fault.status.msk_round),
-                            int(stats.fault.status.msk_clamp),
-                        ])
+                            stats.batch_id,
+                            stats.tree_id,
+                            stats.tree_k,
+                            stats.tree_h,
+                            stats.trees, 
+                            stats.failed_leaves, 
+                            stats.layer,
+                            f"{stats.time:.2f}"
+                        ]
+                    )
+
+            elif self.log_type == TYPE_STATS_PER_FAULT: 
+                for stats in self.buffer:
+                    full_row = [ 
+                        stats.input_id,
+                        stats.fault.tag,
+                        stats.tgt_layer,
+                        stats.fault.tile.a_row,
+                        stats.fault.tile.b_col,
+                        stats.fault.gemm.target,
+                        stats.fault.gemm.pe_row,
+                        stats.fault.gemm.pe_col,
+                        stats.fault.gemm.bit,  # TODO: log also the cell for GL injections?
+                        int(stats.sdc1),
+                        int(stats.sdc5),
+                        int(stats.fault.status.msk_gemm),
+                        int(stats.fault.status.msk_scale),
+                        int(stats.fault.status.msk_round),
+                        int(stats.fault.status.msk_clamp),
+                        int(stats.fault.status.msk_qtz),
+                    ]
+
+                    if defs.TREE_FI_MODE:
+                        full_row.extend(
+                            [
+                                stats.tree_id,
+                                stats.tree_k,
+                                stats.tree_h,
+                                stats.th_conf_score_gap
+                            ])
+
+                    writer.writerow(full_row)
 
             elif self.log_type == TYPE_STATS_PER_FAULT_SW:
                 if defs.VIT:
                     for stats in self.buffer:
-                        writer.writerow(
-                            [ 
-                                stats.input_id,
-                                stats.fault.tag,
-                                stats.tgt_layer,
-                                stats.fault.x,
-                                stats.fault.y,
-                                stats.fault.target,
-                                stats.fault.bit,
-                                int(stats.sdc1),
-                                int(stats.sdc5),
+                        full_row = [ 
+                            stats.input_id,
+                            stats.fault.tag,
+                            stats.tgt_layer,
+                            stats.fault.x,
+                            stats.fault.y,
+                            stats.fault.target,
+                            stats.fault.bit,
+                            int(stats.sdc1),
+                            int(stats.sdc5),
+                        ]
+
+                    if defs.TREE_FI_MODE:
+                        full_row.extend(
+                            [
+                                stats.tree_id,
+                                stats.tree_k,
+                                stats.tree_h,
+                                stats.th_conf_score_gap
                             ])
+                    writer.writerow(full_row)
+
                 else:
                     for stats in self.buffer:
-                        writer.writerow(
-                            [ 
-                                stats.input_id,
-                                stats.fault.tag,
-                                stats.tgt_layer,
-                                stats.fault.target,
-                                stats.fault.N,
-                                stats.fault.C,
-                                stats.fault.H,
-                                stats.fault.W,
-                                stats.fault.bit,
-                                int(stats.sdc1),
-                                int(stats.sdc5),
-                            ])
+                        full_row =[ 
+                            stats.input_id,
+                            stats.fault.tag,
+                            stats.tgt_layer,
+                            stats.fault.target,
+                            stats.fault.N,
+                            stats.fault.C,
+                            stats.fault.H,
+                            stats.fault.W,
+                            stats.fault.bit,
+                            int(stats.sdc1),
+                            int(stats.sdc5)
+                        ]
+
+                        if defs.TREE_FI_MODE:
+                            full_row.extend(
+                                [
+                                    stats.tree_id,
+                                    stats.tree_k,
+                                    stats.tree_h,
+                                    stats.th_conf_score_gap
+                                ])
+
+                    writer.writerow(full_row)
 
             elif self.log_type == TYPE_STATS_PER_BATCH_PARALLEL: 
                 for stats in self.buffer: 
@@ -247,12 +414,17 @@ class Logger:
                             stats.failed_leaves,
                             stats.reached_leaves, 
                             stats.visited_nodes,
+                            stats.tree_id,
+                            stats.tree_k,
+                            stats.tree_h,
                             stats.max_reached_level, 
                             f'{stats.batch_gold_accuracy:.4f}',
                             f'{stats.avg_batch_work_accuracy:.4f}',
                             f'{stats.avg_batch_accuracy_drop:.4f}',
                             f'{stats.avg_injection_time:.2f}',
-                        ])
+                            stats.th_conf_score_gap
+                        ]
+                    )
 
             elif self.log_type == TYPE_STATS_PER_BATCH_SEQUENTIAL:
                 for stats in self.buffer: 
@@ -265,11 +437,22 @@ class Logger:
                             f'{stats.avg_batch_work_accuracy:.4f}',
                             f'{stats.avg_batch_accuracy_drop:.4f}',
                             f'{stats.avg_injection_time:.2f}',
-                        ])
+                        ]
+                    )
 
             elif self.log_type == TYPE_STATS_PER_NODE: 
                 for stats in self.buffer: 
-                    writer.writerow([stats.node_id, stats.batch_id, stats.visits, f'{stats.criticality:.4f}'])
+                    writer.writerow(
+                        [
+                            stats.node_id, 
+                            stats.batch_id,
+                            stats.tree_id,
+                            stats.tree_k,
+                            stats.tree_h,
+                            stats.visits,
+                            f'{stats.criticality:.4f}'
+                        ]
+                    )
             else:
                 raise "Error: invalid log type"
         

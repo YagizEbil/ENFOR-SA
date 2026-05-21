@@ -108,13 +108,10 @@ def load_extension(config_key):
 
     objectFiles = CONFIGS[config_key]
 
-    # Code removed for open source
-    #"""
     # attach -DUSE_GL_INJECTION if GL is True
     if defs.ENABLE_GL_FAULT_MODEL:
         OPT_FLAG = f"{OPT_FLAG} -DUSE_GL_INJECTION"
         objectFiles.append(MAC_MODULE)
-    #"""
 
     FLAGS = [OPT_FLAG, INCLUDE_FLAG]
 
@@ -128,8 +125,9 @@ def load_extension(config_key):
     If any of these change — even just the extra_ldflags string — PyTorch creates a new hash directory, and recompiles everything from scratch.
     This way, if we use a single extension name for each config, we can keep individual cached bindings for each config
     """
-    return cpp_extension.load(name=f"{EXT_NAME}_{config_key}", 
-                              sources=SRC_SER, 
-                              extra_cflags=FLAGS, 
-                              extra_ldflags=objectFiles, 
-                              verbose=False)
+    return cpp_extension.load(
+        name=f"{EXT_NAME}_{config_key}", 
+        sources=SRC_SER, 
+        extra_cflags=FLAGS, 
+        extra_ldflags=objectFiles, 
+        verbose=False)

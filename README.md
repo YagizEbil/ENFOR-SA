@@ -9,7 +9,7 @@ The required modules are listed in `requirements.txt`. It's advisable to install
 ```
 python3 -m venv <your env path>
 source <your env path>/bin/activate
-python3 -m pip install -r requeriments.txt
+python3 -m pip install -r requirements.txt
 ```
 
 For fault injection tests, you will also need a copy of the validation set of [ImageNet](https://www.image-net.org/index.php).

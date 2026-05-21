@@ -104,7 +104,6 @@ CONFIG_PARAMS = {
     #    "mode":      MODE_OS
     #}, 
    
-
     "OSDIM16_HDFIT": 
     {
         "path":     "CustomGemminiOSBigSoCConfig_RTL_HDFIT",

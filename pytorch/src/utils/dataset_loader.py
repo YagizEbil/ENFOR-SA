@@ -88,10 +88,12 @@ def load_dataset_imagenet(batch_size=64):
     dataset = torchvision.datasets.ImageFolder(root=f"{defs.PATH_IMAGENET}/val", transform=transform)
 
     # Define data loaders
-    dataloader = DataLoader(dataset, 
-                            batch_size=batch_size, 
-                            shuffle=True, 
-                            num_workers=4)
+    dataloader = DataLoader(
+        dataset, 
+        batch_size=batch_size, 
+        shuffle=True, 
+        num_workers=4)
+
     #dataset = dataloader.dataset
     dataset_len = len(dataset)
 
@@ -128,7 +130,11 @@ def load_dataset_mnist(normalize=True):
 
     # Load training and test datasets
     #train_dataset = datasets.MNIST(root=defs.PATH_MNIST, train=True, download=download, transform=transform)
-    test_dataset = datasets.MNIST(root=defs.PATH_MNIST, train=False, download=True, transform=transform)
+    test_dataset = datasets.MNIST(
+        root=defs.PATH_MNIST, 
+        train=False, 
+        download=True, 
+        transform=transform)
 
     # Create data loaders
     #train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True)

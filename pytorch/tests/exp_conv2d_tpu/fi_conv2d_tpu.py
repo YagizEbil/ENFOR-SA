@@ -39,7 +39,7 @@ fault_list = "./tests/exp_conv2d_tpu/experiments/WSDIM64_sc26.csv"
 CONFIG_KEY = "WSDIM64"
 
 defs.ENABLE_GL_FAULT_MODEL = False
-#defs.ENABLE_GL_FAULT_MODEL = True  # this is not released as open source
+#defs.ENABLE_GL_FAULT_MODEL = True
 
 # saves the conv outputs after each injection
 SAVE_CONV_OUTPUTS=True

@@ -506,8 +506,7 @@ uint32_t Gemmini::streamOS(
                 Output_t goldMesh = mesh->getMacOut(); // gets the output of the PE stored in faultList[0]
                 Output_t goldHost = glMac->io_in_a*glMac->io_in_b + glMac->io_in_c; // golden MAC operation
                 
-                //assert(goldHost == goldMesh); // ok. passed
-                //assert(glMacOut == goldHost);
+                assert(goldHost == goldMesh); // ok. passed
 
                 /* counts the number of bits flipped in the MAC output w.r.t the golden output */
                 //uint8_t flippedBits = popcount(glMacOut^goldMesh); // TODO: check also the pattern in which the bits are flipped

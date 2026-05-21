@@ -23,12 +23,11 @@ import src.definitions as defs
 
 
 # Available configs
-
 #
 # OS configs
 #
 #CONFIG_KEY = "OSDIM4"
-#CONFIG_KEY = "OSDIM8"
+CONFIG_KEY = "OSDIM8"
 #CONFIG_KEY = "OSDIM16"
 #CONFIG_KEY = "OSDIM32"
 #CONFIG_KEY = "OSDIM64"
@@ -46,7 +45,7 @@ import src.definitions as defs
 # WS configs
 #
 #CONFIG_KEY = "WSDIM4"
-CONFIG_KEY = "WSDIM8"
+#CONFIG_KEY = "WSDIM8"
 #CONFIG_KEY = "WSDIM64"
 
 #CONFIG_KEY = "TVU_SA"
@@ -327,7 +326,7 @@ class TesterGemmini(unittest.TestCase):
                 C_gold = torch.mm(self.A, self.B) + self.D
                 
                 if conf.GEMM_MODE == conf.MODE_OS:
-                    #steps_pre = gemmini.preload(self.D)
+                    steps_pre = gemmini.preload(self.D)
                     steps_str = gemmini.stream(self.A, self.B)
                     steps_flu = gemmini.flush_gemm(self.C, False)
                 else:

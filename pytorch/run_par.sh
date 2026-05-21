@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
 
+# Enable the models to inject here
 models=(
         "ResNet18"
         #"ResNet50"
@@ -33,8 +34,10 @@ deit_layers=(0 1 2 3 4 5 6)
 # [Debug only]
 debug_layers=(0)
 
+# Enable the required injection layers here, for each model enabled in the 'models' array above 
+# this array must be consistent with the used models above
 target_layers=(
-                ResNet18_target_layers
+                #ResNet18_target_layers
                 #ResNet50_target_layers
                 #ResNeXt101_32X8D_target_layers
                 #ResNeXt101_64X4D_target_layers
@@ -47,7 +50,7 @@ target_layers=(
                 #deit_layers
                 #deit_layers
                 #deit_layers
-                #debug_layers
+                debug_layers
             )
 #
 # Points to the layers declared above, for each model
@@ -58,7 +61,10 @@ declare -n used_layers="${target_layers}"
 # Runs the sequential fault injection mode
 #
 for ((i=0; i<${#models[@]}; i++)); do
-  ./scripts/run/run_sequential.sh "${models[i]}" "${used_layers[@]}"
+  #
+  # Runs the simultaneous fault injection mode
+  #
+  ./scripts/run/run_parallel.sh "${models[i]}" "${used_layers[@]}"
 done
 
 #
