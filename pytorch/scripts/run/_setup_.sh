@@ -13,10 +13,10 @@ init_params(){
         declare -g exp_descr=$experiment_description
         declare -g mode_folder="sequential"
     elif [ $simul_mode -eq $MODE_PARALLEL ]; then
-        declare -g exp_descr=$experiment_description_par
+        declare -g exp_descr=$experiment_description
         declare -g mode_folder="parallel"
     elif [ $simul_mode -eq $MODE_DAC ]; then
-        declare -g exp_descr=$experiment_description_dac
+        declare -g exp_descr=$experiment_description
         declare -g mode_folder="dac"
     else
         echo "[Error]: Invalid simulation mode"

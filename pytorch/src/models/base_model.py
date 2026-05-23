@@ -91,7 +91,7 @@ class BaseModel(torch.nn.Module):
         if len(BaseModel.input_batch): # when pruning the inputs in the tree mode, the batch maybe completely erased
             with torch.no_grad():  # No need to compute gradients
                 # Get the model's output
-                #self.output_logits = self.model(BaseModel.input_batch) # this wont call the forward pass!!
+                #self.output_logits = self.model(BaseModel.input_batch) # this wont call the forward pass for this class
                 self.output_logits = self(BaseModel.input_batch.float())
 
                 if defs.CUDA:
@@ -111,6 +111,7 @@ class BaseModel(torch.nn.Module):
 
                 # the top-5 scores  
                 self.top5_classes_values = self.top5_classes.values  # shape ([16,5])
+
                 #top5_classes_values, top5_classes_indices = torch.topk(self.probabilities, k=5, dim=1)
 
                 # Get the predicted top-1 label for each input in the batch

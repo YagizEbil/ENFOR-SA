@@ -90,7 +90,9 @@ nbatches=1
 #
 # A simulation seed (this goes to the report file name)
 #
-seed=12
+seed=0
+# demonstration (mac gates)
+#seed=42
 
 #
 # The number of PyTorch inter and intra op threads (see https://docs.pytorch.org/docs/stable/notes/cpu_threading_torchscript_inference.html)

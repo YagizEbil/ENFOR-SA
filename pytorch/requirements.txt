@@ -1,3 +1,5 @@
+# PyTorch CPU wheels (maybe required to install torch for cpu only)
+#--index-url https://download.pytorch.org/whl/cpu
 torch
 torchvision
 ninja

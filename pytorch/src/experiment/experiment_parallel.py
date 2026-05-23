@@ -58,8 +58,10 @@ class ExperimentParallel(exp.Experiment):
         USE_FIXED_TREE_PARAMS = True
 
         if USE_FIXED_TREE_PARAMS:
-            K_fixed = 25
-            H_fixed = 4
+
+            # ResNet18, seed=0 toy inputs (20 batches), use K_fixed, H_fixed = 5, 5 for 100% recall and good speedup (keep node 12%)
+            K_fixed = 5 #25
+            H_fixed = 5 #4
 
             K_min, K_max, K_step = K_fixed, K_fixed+1, 1
             H_min, H_max, H_step = H_fixed, H_fixed+1, 1
@@ -113,7 +115,6 @@ class ExperimentParallel(exp.Experiment):
 
                 forest = tree.build_forest(k, h, trials)
                 #tree.print_forest(forest)
-
                 self.forest_size = len(forest)
 
                 # [Tree info]
@@ -298,9 +299,9 @@ class ExperimentParallel(exp.Experiment):
                 if defs.PRUNE_INPUTS: # only using keep_node for our proposal, and not dac
                     for index in fault_node.input_indices:
                         if not is_input_critical.get(index):  # if the index is not so far considered critical
-                            keep_node |= self.model_golden.conf_gap[index] < 5.0/100
-                            #keep_node |= self.model_golden.conf_gap[index] < 6.0/100
-                            #keep_node |= self.model_golden.conf_gap[index] < 3.0/100
+                            #keep_node |= self.model_golden.conf_gap[index] < 5.0/100
+                            keep_node |= self.model_golden.conf_gap[index] < 12.0/100 # ResNet18, layer 0: recall 100%
+                            #keep_node |= self.model_golden.conf_gap[index] < 5.0/100
 
                 if fault_node.is_critical or keep_node or fault_node.is_root:
                     # the child node takes only the parent node's indexes which are not golden       

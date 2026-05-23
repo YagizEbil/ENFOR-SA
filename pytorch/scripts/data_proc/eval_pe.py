@@ -47,7 +47,7 @@ def main():
         for j in range(DIM):
             pe_df = df[(df["pe_row"] == i) & (df["pe_col"] == j)]
 
-            #pe_df = pe_df[(pe_df['target'] == IN_A)]
+            pe_df = pe_df[(pe_df['target'] == IN_A)]
 
             inj[i][j] = len(pe_df)
 
@@ -68,8 +68,8 @@ def main():
             clamp_msk[i][j] = 100*clamp_msk_pe/inj[i][j] if inj[i][j] else -1
             round_clamp_msk[i][j] = 100*(pe_df["clamp_msk"].sum() + pe_df["round_msk"].sum())/inj[i][j]  if inj[i][j] else -1
 
-    #plot_heatmap(avf, bar_label="AVF")
-    plot_heatmap(inj, bar_label="Injections")
+    plot_heatmap(avf, bar_label="AVF")
+    #plot_heatmap(inj, bar_label="Injections")
 
 
 def plot_heatmap(data, title='title', bar_label="Mean AVF"):

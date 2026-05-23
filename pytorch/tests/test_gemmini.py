@@ -224,7 +224,7 @@ class TesterGemmini(unittest.TestCase):
 
     #@unittest.skip
     def test_matmul_rtl(self):
-        nFailed, nTrials = 0, 100
+        nFailed, nTrials = 0, 1000
 
         for i in range(nTrials):
             self.A.random_(MIN_INT, MAX_INT)

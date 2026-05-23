@@ -6,16 +6,9 @@ import numpy as np
 """
 python scripts/data_proc/eval_criticality.py reports/ResNet18/exp-batches-rtl/sequential/trace/sim-xyz-s12-OSDIM8.csv
 """
-def main():
-    
-    if len(sys.argv) < 2:
-        print(f"Syntax: {sys.argv[0]} <input file>")
-        exit(0)
 
-    fn = sys.argv[1]
 
-    df = pd.read_csv(fn, comment='#', sep='\t')
-
+def compute_fault_crit(df):
     grouped = df.groupby('fault_tag').agg(
         injections=('fault_tag', 'count'),
         sdc1_sum=('sdc1', 'sum'),
@@ -33,25 +26,53 @@ def main():
 
     injections_tag = grouped['injections'].to_dict()
 
-    plot_histogram(sdc1_avf_tag, fn)
+    return sdc1_avf_tag
 
 
 
-def plot_histogram(data1, fn):
+def main():
+    
+    if len(sys.argv) < 2:
+        print(f"Syntax: {sys.argv[0]} <input file>")
+        exit(0)
+
+    fn1 = sys.argv[1]
+    #fn2 = sys.argv[2]
+
+    df1 = pd.read_csv(fn1, comment='#', sep='\t')
+    #df2 = pd.read_csv(fn2, comment='#', sep='\t')
+
+    sdc1_avf_tag = compute_fault_crit(df1)
+    #sdc2_avf_tag = compute_fault_crit(df2)
+
+    plot_histogram(sdc1_avf_tag, None, fn1)
+
+
+
+def plot_histogram(data1, data2, fn):
     # Sample data
     #data1 = np.random.normal(loc=0, scale=1, size=1000)
     #data2 = np.random.normal(loc=2, scale=1.5, size=1000)
 
     values_1 = list(data1.values())
 
+    values_2=None
+
+    if data2 is not None:
+        values_2 = list(data2.values())
+        values_2 = [100*v for v in values_2]
+
     values_1 = [100*v for v in values_1]
 
-    nbins_1 = int(get_nbins_method_2(values_1))
+    nbins_1 = int(get_nbins_method_3(values_1))
 
     plt.clf()
 
     # Plot
     plt.hist(values_1, bins=nbins_1, alpha=0.5, color='blue')
+    
+    if values_2 is not None:
+        plt.hist(values_2, bins=nbins_1, alpha=0.5, color='red')
     
     #plt.legend()
     plt.title(f'Dataset: {fn}')
@@ -90,10 +111,6 @@ def get_nbins_method_6(data):
     bin_width = 2 * iqr / len(data)**(1/3)
     num_bins = int(np.ceil((max(data) - min(data)) / bin_width))
     return num_bins
-
-
-
-
 
 if __name__ == "__main__":
     main()

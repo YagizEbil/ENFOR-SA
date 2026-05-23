@@ -53,6 +53,7 @@ def main():
         )
 
     #input_indices = ti.toy_inputs_low_avf[0:8]
+    #input_indices = list(range(512))
 
     critical_faults = experiment.run_experiment(input_indices)
 

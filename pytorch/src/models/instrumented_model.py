@@ -26,11 +26,11 @@ class InstrumentedModel(BaseModel):
 
         fiMode = "Software"
         
-        if defs.FI_GEMM:
-            if defs.ENABLE_GL_FAULT_MODEL:
-                fiMode = "Gates"
-            else:
-                fiMode = "RTL"
+        fiMode = (
+            "Gates" if defs.FI_GEMM and defs.ENABLE_GL_FAULT_MODEL
+            else "RTL" if defs.FI_GEMM
+            else "Software"
+        )
 
         print(f"{u.Co['fg'][65]}[InstrumentedModel]:{u.R}")
         print(f"- DNN model: {model_name}")
