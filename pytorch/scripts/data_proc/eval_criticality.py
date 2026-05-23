@@ -2,6 +2,7 @@ import sys
 import matplotlib.pyplot as plt
 import pandas as pd
 import numpy as np
+from matplotlib.lines import Line2D
 
 """
 python scripts/data_proc/eval_criticality.py reports/ResNet18/exp-batches-rtl/sequential/trace/sim-xyz-s12-OSDIM8.csv
@@ -28,17 +29,15 @@ def compute_fault_crit(df):
 
     return sdc1_avf_tag
 
-
-
 def main():
     if len(sys.argv) < 2:
         print(f"Syntax: {sys.argv[0]} <input file>")
         exit(0)
 
     fn1 = sys.argv[1]
-
-
     df1 = pd.read_csv(fn1, comment='#', sep='\t')
+    
+    sdc1_avf_tag = compute_fault_crit(df1)
 
     dc2_avf_tag = None
 
@@ -46,8 +45,6 @@ def main():
         fn2 = sys.argv[2]
         df2 = pd.read_csv(fn2, comment='#', sep='\t')
         dc2_avf_tag = compute_fault_crit(df2)
-
-    sdc1_avf_tag = compute_fault_crit(df1)
 
     plot_histogram(sdc1_avf_tag, dc2_avf_tag, fn1)
 
@@ -77,8 +74,14 @@ def plot_histogram(data1, data2, fn):
     
     if values_2 is not None:
         plt.hist(values_2, bins=nbins_1, alpha=0.5, color='red')
-    
-    #plt.legend()
+
+        legend_elements = [
+            Line2D([0], [0], marker='o', color='w', markerfacecolor='blue', markersize=12, label='Sequential'),
+            Line2D([0], [0], marker='o', color='w', markerfacecolor='red', markersize=12, label='Parallel')
+        ]
+
+        plt.legend(handles=legend_elements)
+
     plt.title(f'Dataset: {fn}')
     plt.xlabel('Criticality (%)')
     plt.ylabel('Count')

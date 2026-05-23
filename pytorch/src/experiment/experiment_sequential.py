@@ -77,7 +77,7 @@ class ExperimentSequential(exp.Experiment):
         critical_fault_list, critical_faults = self.run_batch_sequential_fault_list(batch_id, trials=defs.INJECTIONS)
         #critical_fault_list, critical_faults = self.run_batch_sequential_fault_list_debug(batch_id, trials=defs.INJECTIONS)
 
-        print(f"Finished batch {batch_id}. Critical faults:{critical_faults}")
+        print(f"Finished batch {batch_id}. Critical faults: {critical_faults}")
 
         return critical_faults
 
@@ -183,16 +183,18 @@ class ExperimentSequential(exp.Experiment):
         fig, ax = plt.subplots()
         xs, ys = [], []
         line, = ax.plot(xs, ys)
-    
+        fontsize=16
+
         legend_elements = [
-            Line2D([0], [0], marker='o', color='w', markerfacecolor='blue', markersize=12, label='Non-critical SDC'),
-            Line2D([0], [0], marker='o', color='w', markerfacecolor='red', markersize=12, label='Critical SDC')
+            Line2D([0], [0], marker='o', color='w', markerfacecolor='blue', markersize=12, label='Non-critical SDC (Top-1 score ± 1%)'),
+            Line2D([0], [0], marker='o', color='w', markerfacecolor='red', markersize=12, label='Critical SDC (Top-1 label != Golden label)')
         ]
 
         plt.legend(
             loc='center left',
-            bbox_to_anchor=(1, 0.5),  # pushes legend outside to the right
-            handles=legend_elements)
+            bbox_to_anchor=(0.7, 1.1),
+            handles=legend_elements,
+            fontsize=fontsize)
 
         fiMode = (
             "Gates" if defs.FI_GEMM and defs.ENABLE_GL_FAULT_MODEL
@@ -204,19 +206,22 @@ class ExperimentSequential(exp.Experiment):
         text_handle = ax.text(
             0, 1.03,  # position in axes coordinates
             "",       # initial text
-            fontsize=14,
+            fontsize=fontsize,
             transform=ax.transAxes
         )
 
-        ax.set_title(f"Injection mode: {fiMode}", fontsize=14)
-        ax.set_ylabel("Logits noise (%)", fontsize=14)
-        ax.set_xlabel("Fault iteraction", fontsize=14)
-        plt.xticks(fontsize=14)
-        plt.yticks(fontsize=14)
+        ax.set_title(f"Injection mode: {fiMode}", fontsize=fontsize)
+        ax.set_ylabel("Logits noise (%)", fontsize=fontsize)
+        ax.set_xlabel("Fault iteraction", fontsize=fontsize)
+        plt.xticks(fontsize=fontsize)
+        plt.yticks(fontsize=fontsize)
+        plt.grid(True)
 
         critical_faults, ninjected = 0, 0
         samples = []
            
+        command = input("")
+
         for i in tqdm(range(0, total_faults), desc="Processing fault list", unit="iter", ncols=0):
         #for fault in base_fault_list:
             fault = base_fault_list[i] # ATTENTION: uncomment this if using tqdm

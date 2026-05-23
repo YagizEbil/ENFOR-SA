@@ -73,7 +73,7 @@ target_inputs = {
 }
 
 target_outputs = {
-    'target': c.OUT_C
+    'target': c.OUT_C # OS only
 }
 
 target_control = {

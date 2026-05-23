@@ -207,7 +207,6 @@ class GemminiWS(Gemmini):
     def matmul(self, A_tile, B_tile, D_tile=None):
         # WS only passes the A and D (if not None). B should be preloaded first. C_tile is passed here just to get the outputs directly from the PE partial sum (last row) - there's no flush_gemm for WS mode
         preload_cycles = self.preload(B_tile)
-
         if D_tile == None:
             compute_cycles = self.stream(A_tile, self.C_tile)
         else:

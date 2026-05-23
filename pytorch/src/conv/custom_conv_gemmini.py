@@ -66,7 +66,7 @@ class CustomConv:
             self.weight_scale_exp = self.weight_scale.unsqueeze(1).expand(-1, self.weights_flat.shape[1])
 
     """
-    gemmini_os_compute_tile():  models a single tile multiplication on Gemmini (a golden matmul is also computed for reference
+    gemmini_compute_tile():  models a single tile multiplication on Gemmini (a golden matmul is also computed for reference
         - OS version. preloads the bias matrix, and flows inputs and weights through Gemmini
          (this was the version used in the DAC/DATE/VTS results)
 
@@ -97,14 +97,14 @@ class CustomConv:
          (https://openaccess.thecvf.com/content_cvpr_2018/papers/Jacob_Quantization_and_Training_CVPR_2018_paper.pdf))
     """
 
-    def gemmini_os_compute_tile(
+    def gemmini_compute_tile(
         self, 
         input_im2col,  # The input in the im2col format
         tile_w_row,    # The weight tile row positon
         tile_w_col,    # The weight tile col positon
         tile_i_row,    # The input tile row positon
         tile_i_col,    # The input tile col positon
-        preload_bias_hw=True, # preloads the bias matrix in the SA (for FI, this is not actually mandatory)
+        preload_bias_hw=False, # preloads the bias matrix in the SA (for FI, this is not actually mandatory)
         gemmini_fault=None    # The Gemmini fault position of type fl.GemminiPos
         ): #: Optional[fl.GemminiPos] = None):
 
@@ -123,41 +123,44 @@ class CustomConv:
 
         # expands the bias so that i can extract the tile that matters for this position
         # TODO: this could be done offline once per layer in load_params(), but i need the input shape (solve this somehow) 
-        if preload_bias_hw:
-            bias_exp = self.bias.unsqueeze(1).expand(-1, input_im2col.shape[1]) # expands the bias to the shape [A_rows, B_cols]
+        if conf.CONFIG_PARAMS[conf.CONFIG_KEY]["mode"] == conf.MODE_OS:
+            if preload_bias_hw:
+                bias_exp = self.bias.unsqueeze(1).expand(-1, input_im2col.shape[1]) # expands the bias to the shape [A_rows, B_cols]
 
-            # extracts only the bias portion that matters - as i'm computing a single matmul tile
-            bias_tile = tile_ops.extract_fp_tile(bias_exp, tile_w_row, tile_i_col, conf.DIM)
+                # extracts only the bias portion that matters - as i'm computing a single matmul tile
+                bias_tile = tile_ops.extract_fp_tile(bias_exp, tile_w_row, tile_i_col, conf.DIM)
 
-            # Convert to int32 and perform 32 bit add
-            bias_tile_q = bias_tile/(self.input_scale*weight_scale_tile)
-            bias_tile_q = bias_tile_q.round().to(torch.int32)
+                # Convert to int32 and perform 32 bit add
+                bias_tile_q = bias_tile/(self.input_scale*weight_scale_tile)
+                bias_tile_q = bias_tile_q.round().to(torch.int32)
 
-            # Preloads the tile to the PE accumulators (maybe use preload_bias_hw=False for large arrays to improve performance)
-            igemm.gemmini_device.preload(bias_tile_q) 
-        else:
-            igemm.gemmini_device.reset()
-            
+                # Preloads the tile to the PE accumulators (maybe use preload_bias_hw=False for large arrays to improve performance)
+                igemm.gemmini_device.preload(bias_tile_q) 
+            else:
+                igemm.gemmini_device.reset()
+
         # updates the Gemmini fault list
         if not defs.RUN_GOLDEN_MODE:
             igemm.gemmini_device.update_fault_list(gemmini_fault)
 
         # performs the tile matmul in Gemmini
-        z_gemm = igemm.gemmini_device.matmul(w_tile, i_tile)
+        if conf.CONFIG_PARAMS[conf.CONFIG_KEY]["mode"] == conf.MODE_OS:
+            z_int_gemm = igemm.gemmini_device.matmul(w_tile, i_tile)
+        else: # WS: w_tile has to be preloaded. pass it as the second paramenter
+            z_int_gemm = igemm.gemmini_device.matmul(
+                i_tile.t().contiguous(), 
+                w_tile.t().contiguous()).t().contiguous()
+
         #print(f"{igemm.gemmini_device.cycles_preload}\t{igemm.gemmini_device.cycles_compute}\t{igemm.gemmini_device.cycles_flush}")
 
         # computes the golden tile result
-        z_gold = torch.mm(w_tile, i_tile) 
+        z_int_gold = torch.mm(w_tile, i_tile) 
 
         del w_tile
         del i_tile
 
-        if preload_bias_hw:
-            z_int_gold = z_gold + bias_tile_q
-            z_int_gemm = z_gemm # + bias_tile_q  # Important: iff the bias is not preloaded in Gemmini first, we should add it to the output here, in sw
-        else:
-            z_int_gold = z_gold 
-            z_int_gemm = z_gemm
+        if conf.CONFIG_PARAMS[conf.CONFIG_KEY]["mode"] == conf.MODE_OS and preload_bias_hw: # TODO: clean this up
+            z_int_gold = z_int_gold + bias_tile_q
 
         gemm_msk = torch.equal(z_int_gemm, z_int_gold) # was the fault masked in the matmul?
         
@@ -227,7 +230,7 @@ class CustomConv:
         #print(f"Next fault: {fault}")
         #fault.tile.a_row, fault.tile.a_col, fault.tile.b_row, fault.tile.b_col = 0, 0, 0, 0
         
-        C_tile_gemm, C_tile_gold, msk_levels = self.gemmini_os_compute_tile(
+        C_tile_gemm, C_tile_gold, msk_levels = self.gemmini_compute_tile(
             input_im2col, 
             fault.tile.a_row, 
             fault.tile.a_col, 
@@ -258,7 +261,7 @@ class CustomConv:
 
             # prevents injecting in the same tile twice
             if tile_key not in injected_tiles:
-                C_tile_gemm, C_tile_gold, msk_levels_fault = self.gemmini_os_compute_tile(
+                C_tile_gemm, C_tile_gold, msk_levels_fault = self.gemmini_compute_tile(
                     input_im2col, 
                     fault.tile.a_row, 
                     fault.tile.a_col, 
