@@ -27,6 +27,8 @@ avf = sdc1/injections
 critical_list = df_critical["fault_tag"].unique().tolist()
 
 
+# RTL/GL injections only
+"""
 # The number of injections exposed to the the output layer, in the SW level
 exposed_count = (
     (df_full['gemm_msk']  == 0) &
@@ -56,4 +58,6 @@ tab_msk = [
 print(tabulate(tab_msk))
 
 print(f"Exposed:  {100*exposed_frac:.2f}%")
+"""
+
 print(f"Mean AVF: {100*avf:.2f}%")

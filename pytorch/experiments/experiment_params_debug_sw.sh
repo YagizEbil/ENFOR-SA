@@ -13,7 +13,7 @@
 #
 # The experiment report files. Those are placed in the folder reports/$model/$experiment. Each experiment type should be placed in its own folder
 #
-experiment="debug-sw"
+experiment="ws-sw"
 
 #
 # The Gemmini configuration key (only valid for RTL/GL injection). See all available config keys in gemmini_config.py
@@ -54,7 +54,7 @@ fault_list="fl_sw.csv"
 #
 # The number of faults to be injected for each input in each target layer
 #
-injections=50
+injections=100
 
 #
 # The number of inputs per batch (16 is the best case for my pc)
@@ -64,7 +64,7 @@ batch_size=8
 #
 # The number batches
 #
-nbatches=1
+nbatches=5
 
 #
 # A simulation seed (this goes to the report file name)

@@ -77,7 +77,7 @@ class ExperimentSequential(exp.Experiment):
         critical_fault_list, critical_faults = self.run_batch_sequential_fault_list(batch_id, trials=defs.INJECTIONS)
         #critical_fault_list, critical_faults = self.run_batch_sequential_fault_list_debug(batch_id, trials=defs.INJECTIONS)
 
-        print(f"Finished batch {batch_id} critical faults: {critical_faults}")
+        print(f"Finished batch {batch_id}. Critical faults:{critical_faults}")
 
         return critical_faults
 
@@ -158,3 +158,120 @@ class ExperimentSequential(exp.Experiment):
             )
 
         return critical_fault_list, critical_faults
+
+
+    def run_batch_sequential_fault_list_debug(self, batch_id:int, trials=defs.INJECTIONS):
+        #import src.utils.tensor_metrics as tm
+        import matplotlib.pyplot as plt
+        import time
+        from matplotlib.lines import Line2D
+
+        #interval=1.0 # use 1.0 for demonstration
+        interval=0.2
+
+        # loads the fault list rows [0, trials-1]
+        base_fault_list = fl.load_fault_list(
+            defs.FAULT_LIST, 
+            (0, trials-1), 
+            filters=self.fault_target, 
+            shuffle_list=False
+            ) 
+
+        total_faults = len(base_fault_list)
+
+        plt.ion()  # turn on interactive mode
+        fig, ax = plt.subplots()
+        xs, ys = [], []
+        line, = ax.plot(xs, ys)
+    
+        legend_elements = [
+            Line2D([0], [0], marker='o', color='w', markerfacecolor='blue', markersize=12, label='Non-critical SDC'),
+            Line2D([0], [0], marker='o', color='w', markerfacecolor='red', markersize=12, label='Critical SDC')
+        ]
+
+        plt.legend(
+            loc='center left',
+            bbox_to_anchor=(1, 0.5),  # pushes legend outside to the right
+            handles=legend_elements)
+
+        fiMode = (
+            "Gates" if defs.FI_GEMM and defs.ENABLE_GL_FAULT_MODEL
+            else "RTL" if defs.FI_GEMM
+            else "Software"
+        )
+
+        # Create the text object only ONCE
+        text_handle = ax.text(
+            0, 1.03,  # position in axes coordinates
+            "",       # initial text
+            fontsize=14,
+            transform=ax.transAxes
+        )
+
+        ax.set_title(f"Injection mode: {fiMode}", fontsize=14)
+        ax.set_ylabel("Logits noise (%)", fontsize=14)
+        ax.set_xlabel("Fault iteraction", fontsize=14)
+        plt.xticks(fontsize=14)
+        plt.yticks(fontsize=14)
+
+        critical_faults, ninjected = 0, 0
+        samples = []
+           
+        for i in tqdm(range(0, total_faults), desc="Processing fault list", unit="iter", ncols=0):
+        #for fault in base_fault_list:
+            fault = base_fault_list[i] # ATTENTION: uncomment this if using tqdm
+
+            is_input_mispredicted, is_input_critical = self.run_single_fault(fault)
+            ninjected += 1
+
+            # flags the fault as critical if it affected any input (this cannot be used to compute the AVF directly!)
+            is_sdc_critical = any(is_input_critical.values())
+
+            critical_faults += is_sdc_critical
+            
+            noise = (self.model_faulty.output_logits - self.model_golden.output_logits)/ \
+                torch.mean(self.model_golden.output_logits).item()
+
+            is_non_critical_sdc = False
+
+            for i in range(BaseModel.input_batch_size):
+                top_1_score_err = abs(
+                    self.model_faulty.top5_classes_values[i][0].item() - \
+                    self.model_golden.top1_conf[BaseModel.input_batch_indices[i]]
+                    )
+
+                is_non_critical_sdc = is_non_critical_sdc | (top_1_score_err > 0.01) # consider non-crit if scores vary by more than 1%
+
+            noise = 100*torch.mean(noise).item()
+
+            samples.append(noise)
+            mean_noise = statistics.mean(samples)
+
+            ys.append(noise) 
+            xs.append(ninjected) 
+
+            if is_sdc_critical:
+                ax.scatter(xs[-1], ys[-1], color="red", s=50)
+            elif is_non_critical_sdc:
+                ax.scatter(xs[-1], ys[-1], color="blue", s=50)
+
+            line.set_xdata(xs)
+            line.set_ydata(ys)
+
+            ax.relim()           # recompute limits
+            ax.autoscale_view()  # rescale axes
+            
+            text_handle.set_text(
+                f"- Total injected:  {ninjected}/{total_faults}\n"
+                f"- Critical faults: {critical_faults}/{ninjected} ({100*critical_faults/ninjected:.1f}%)\n" \
+                f"- Mean noise:      {mean_noise:.1f}%\n" \
+            )
+
+            plt.draw()
+            plt.pause(0.004) # required for GUI update
+            time.sleep(interval)
+
+        plt.ioff() # turn OFF interactive mode
+        plt.show() # blocks until you close the window
+
+        return [], critical_faults

@@ -22,7 +22,7 @@ REPORTS_PATH="./reports"
 SEED = 0
 ALIAS = "sim-xyz"
 CONFIG_KEY = "OSDIM8"
-
+IS_SW_LOG=False
 
 # In[3]:
 
@@ -53,7 +53,7 @@ def load_df(
     # the file name is structured as
     #fn = "<alias>-s<sed>-<config key>.csv"
 
-    if area == "sw":
+    if IS_SW_LOG: #area == "sw":
         file = f"{ALIAS}-s{SEED}-SW.csv"
     else:
         file = f"{ALIAS}-s{SEED}-{CONFIG_KEY}.csv"
@@ -266,9 +266,8 @@ FOLDER_PAR="parallel"
 # report file area inside the 'report' folder
 #AREA="hw-inj-osdim8"  # Faults in Gemmini
 #AREA="sw-inj"         # Faults in SW
-#AREA="."
-AREA="workshop"
-
+#AREA="workshop"
+AREA="."
 
 # In[14]:
 
@@ -277,11 +276,29 @@ AREA="workshop"
 #EXPERIMENT_SEQ="exp-rtl-base"
 #EXPERIMENT_PAR="exp-rtl-base-v5"
 
-EXPERIMENT_SEQ="exp-rtl-v1"
 
-# v6 has good results for the 64 batches
-EXPERIMENT_PAR="exp-rtl-v6" # use v6 case
+#
+#
+#
+EXPERIMENT_SEQ="exp-rtl-all-toy-inputs-v1"
+EXPERIMENT_PAR="exp-rtl-all-toy-inputs-v1"
 
+#EXPERIMENT_SEQ="ws-camp-sw"
+#EXPERIMENT_PAR="ws-camp-sw"
+
+EXPERIMENT_SEQ="ws-camp-rtl"
+EXPERIMENT_PAR="ws-camp-rtl"
+
+#EXPERIMENT_SEQ="ws-camp-rtl-accumulators"
+#EXPERIMENT_PAR="ws-camp-rtl-accumulators"
+
+#EXPERIMENT_SEQ="ws-camp-rtl-ctrl"
+#EXPERIMENT_PAR="ws-camp-rtl-ctrl"
+
+#EXPERIMENT_SEQ="ws-camp-gl"
+#EXPERIMENT_PAR="ws-camp-gl"
+
+IS_SW_LOG=False
 
 # In[15]:
 
@@ -453,10 +470,9 @@ tab_avg_time_node = [["Sequential", f"{1000*mean_time_per_node_total_seq:.3f}ms"
                      ["Reduction", f"{mean_time_per_node_total_seq/mean_time_per_node_total_par:.2f}x"],
                     ]
 
-tab_inj_layers = [["Sequential", inj_layers_seq], 
-                  ["Parallel", inj_layers_par],
+tab_inj_layers = [["Sequential", layers_seq], 
+                  ["Parallel", layers_par],
                  ]
-
 
 # In[28]:
 
@@ -480,22 +496,3 @@ print(tabulate(tab_total_it,   headers=["Mode", "Injection time"])); print()
 
 print(tabulate(tab_avf, headers=["Mode", "AVF"])); print()
 print(tabulate(tab_inj_layers, headers=["Mode", "Injected layers"])); print()
-
-
-# In[ ]:
-
-
-
-
-
-# In[ ]:
-
-
-
-
-
-# In[ ]:
-
-
-
-

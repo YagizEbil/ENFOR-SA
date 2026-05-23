@@ -13,8 +13,8 @@
 #
 # The experiment report files. Those are placed in the folder reports/$model/$experiment. Each experiment type should be placed in its own folder
 #
-experiment="ws"
-#experiment="exp-rtl-base-v5"
+experiment="ws-camp-rtl"
+
 #
 # The Gemmini configuration key (only valid for RTL/GL injection). See all available config keys in gemmini_config.py
 #
@@ -95,10 +95,6 @@ nbatches=5
 # seq vs par, trivial case
 seed=0
 
-#seed=1
-
-# online demonstration (pe outputs)
-#seed=42
 
 #
 # The number of PyTorch inter and intra op threads (see https://docs.pytorch.org/docs/stable/notes/cpu_threading_torchscript_inference.html)

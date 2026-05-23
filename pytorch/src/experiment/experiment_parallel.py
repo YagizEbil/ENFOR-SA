@@ -23,23 +23,6 @@ from src.flist import tree as tree
 if defs.VIT:
     from src.ivit.models.model_utils import freeze_model, unfreeze_model
 
-
-def compute_p(margin):
-    """
-        p^(x)∝Pr(fault changes argmax)≈f(margin(x))
-
-        p^(x)≈exp(−α⋅m(x))
-
-        Computes an artificial failure probability (p) based on the top1-top2 confidence gap (margin)
-        p should decay exponentially as the gap increases (according to the procedure shown by gpt)
-        increasign the alpha factor makes the decay more aggressive, meaning p decreases quicker for larger alpha values
-        reduced p values (with higher alpha), produces trees with higher dept, so
-        the time to build the tree also grows very fast for larger values of alpha 
-    """
-    alpha = 1.5
-    return math.exp(-alpha*margin)
-
-    
 class ExperimentParallel(exp.Experiment):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -58,14 +41,12 @@ class ExperimentParallel(exp.Experiment):
         USE_FIXED_TREE_PARAMS = True
 
         if USE_FIXED_TREE_PARAMS:
-
             # ResNet18, seed=0 toy inputs (20 batches), use K_fixed, H_fixed = 5, 5 for 100% recall and good speedup (keep node 12%)
             K_fixed = 5 #25
             H_fixed = 5 #4
 
             K_min, K_max, K_step = K_fixed, K_fixed+1, 1
             H_min, H_max, H_step = H_fixed, H_fixed+1, 1
-        
         else:
             # the 'k' number of child nodes in the tree
             K_min, K_max, K_step = 2, 8, 1
@@ -87,24 +68,6 @@ class ExperimentParallel(exp.Experiment):
             filters=self.fault_target, 
             shuffle_list=False
             )
-
-        """
-        i'll start by choosing k = 3, and then computing h based on an p estimation
-        lower p:  requires higher h -> prunes more nodes with less evaluations
-        higher p: use lower h -> there as a high probability of having to inspect the leaf nodes anyways. the sooner we get to the leaves, the better
-        
-    
-        Simplify as follows:
-            1. take all confident inputs, with no CF
-            2. find the best tree for those inputs with a small sample of FI. use a single tree config for this case
-
-            3. for the non-confident inputs:
-                optimize the tree based on the p estimations
-        """
-
-        def compute_p(conf_gap):
-            alpha = 2
-            return math.exp(-alpha*conf_gap)
 
         for k in range(K_min, K_max, K_step):
             for h in range(H_min, H_max, H_step):
@@ -179,6 +142,7 @@ class ExperimentParallel(exp.Experiment):
 
         critical_fault_list, critical_faults = self.run_batch_tree_fault_list(batch_id, trials=trials)
 
+        print("Critical faults: ", critical_faults)
         #critical_faults = self.DEBUG_run_batch_tree_fault_list(batch_id, trials=trials)
 
         return critical_faults
@@ -300,7 +264,7 @@ class ExperimentParallel(exp.Experiment):
                     for index in fault_node.input_indices:
                         if not is_input_critical.get(index):  # if the index is not so far considered critical
                             #keep_node |= self.model_golden.conf_gap[index] < 5.0/100
-                            keep_node |= self.model_golden.conf_gap[index] < 12.0/100 # ResNet18, layer 0: recall 100%
+                            keep_node |= self.model_golden.conf_gap[index] < 8.0/100 # ResNet18, layer 0: recall 100%
                             #keep_node |= self.model_golden.conf_gap[index] < 5.0/100
 
                 if fault_node.is_critical or keep_node or fault_node.is_root:
@@ -370,9 +334,9 @@ class ExperimentParallel(exp.Experiment):
             else self.model_golden.batch_top1_accuracy
 
         # [Tree info]
-        print(f"     + Visited nodes:   {visited_nodes}")
-        print(f"     + Reached leaves:  {reached_leaves}")
-        print(f"     + Critical leaves: {critical_faults}")
+        #print(f"     + Visited nodes:   {visited_nodes}")
+        #print(f"     + Reached leaves:  {reached_leaves}")
+        #print(f"     + Critical leaves: {critical_faults}")
 
         self.batch_logger.dump_item(
             logger.StatsPerBatchParallel(

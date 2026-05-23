@@ -1,8 +1,7 @@
-# reports/workshop/ResNet18/exp-rtl-v1/parallel/trace/sim-xyz-s0-OSDIM8.csv
 
-#python scripts/data_proc/eval_pe.py $1
-python scripts/data_proc/eval_criticality.py $1 $2
-#python scripts/data_proc/eval.py $1
+python scripts/data_proc/eval.py reports/ResNet18/ws-camp-rtl/sequential/trace/sim-xyz-s0-OSDIM8.csv
+python scripts/data_proc/eval.py reports/ResNet18/ws-camp-sw/sequential/trace/sim-xyz-s0-SW.csv
 
 
-# python scripts/data_proc/eval_criticality.py reports/workshop/ResNet18/exp-rtl-v1/sequential/trace/sim-xyz-s0-OSDIM8.csv reports/workshop/ResNet18/exp-rtl-v1/parallel/trace/sim-xyz-s0-OSDIM8.csv
+# criticality PDF, sequential vs parallel, for all toy input cases (takes around 15min for the sequential)
+#python scripts/data_proc/eval_criticality.py reports/ResNet18/exp-rtl-all-toy-inputs-v1/sequential/trace/sim-xyz-s0-OSDIM8.csv reports/ResNet18/exp-rtl-all-toy-inputs-v1/parallel/trace/sim-xyz-s0-OSDIM8.csv

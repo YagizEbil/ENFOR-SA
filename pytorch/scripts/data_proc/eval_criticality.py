@@ -31,21 +31,25 @@ def compute_fault_crit(df):
 
 
 def main():
-    
     if len(sys.argv) < 2:
         print(f"Syntax: {sys.argv[0]} <input file>")
         exit(0)
 
     fn1 = sys.argv[1]
-    #fn2 = sys.argv[2]
+
 
     df1 = pd.read_csv(fn1, comment='#', sep='\t')
-    #df2 = pd.read_csv(fn2, comment='#', sep='\t')
+
+    dc2_avf_tag = None
+
+    if len(sys.argv) > 2:
+        fn2 = sys.argv[2]
+        df2 = pd.read_csv(fn2, comment='#', sep='\t')
+        dc2_avf_tag = compute_fault_crit(df2)
 
     sdc1_avf_tag = compute_fault_crit(df1)
-    #sdc2_avf_tag = compute_fault_crit(df2)
 
-    plot_histogram(sdc1_avf_tag, None, fn1)
+    plot_histogram(sdc1_avf_tag, dc2_avf_tag, fn1)
 
 
 

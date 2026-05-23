@@ -13,8 +13,8 @@
 #
 # The experiment report files. Those are placed in the folder reports/$model/$experiment. Each experiment type should be placed in its own folder
 #
-experiment="ws"
-#experiment="exp-rtl-base-v5"
+experiment="ws-trivial-rtl"
+
 #
 # The Gemmini configuration key (only valid for RTL/GL injection). See all available config keys in gemmini_config.py
 #
@@ -75,7 +75,7 @@ fault_list="fl_os_dim_8.csv"
 #
 # The number of faults to be injected for each input in each target layer
 #
-injections=100 
+injections=50
 
 
 #
@@ -86,19 +86,15 @@ batch_size=8
 #
 # The number batches
 #
-nbatches=5
+nbatches=1
 
 #
 # A simulation seed (this goes to the report file name)
 #
 
 # seq vs par, trivial case
-seed=0
+seed=1
 
-#seed=1
-
-# online demonstration (pe outputs)
-#seed=42
 
 #
 # The number of PyTorch inter and intra op threads (see https://docs.pytorch.org/docs/stable/notes/cpu_threading_torchscript_inference.html)

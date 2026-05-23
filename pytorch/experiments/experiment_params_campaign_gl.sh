@@ -13,8 +13,8 @@
 #
 # The experiment report files. Those are placed in the folder reports/$model/$experiment. Each experiment type should be placed in its own folder
 #
-experiment="ws"
-#experiment="exp-rtl-base-v5"
+experiment="ws-camp-gl"
+
 #
 # The Gemmini configuration key (only valid for RTL/GL injection). See all available config keys in gemmini_config.py
 #
@@ -46,7 +46,7 @@ gemmini_config_key="OSDIM8"
 #
 # The desired fault model
 #
-fault_model="rtl"
+fault_model="gl"
 
 #
 # An experiment description for bookkeeping
@@ -54,7 +54,7 @@ fault_model="rtl"
 experiment_description="Standard sequential injection approach"
 
 #
-# A simulation alias for bookkeeping - this is attached to the report file names
+# A simulation alias for bookkeeping - this is attatched to the report file names
 #
 sim_alias="sim-xyz"
 
@@ -75,8 +75,7 @@ fault_list="fl_os_dim_8.csv"
 #
 # The number of faults to be injected for each input in each target layer
 #
-injections=100 
-
+injections=100
 
 #
 # The number of inputs per batch (16 is the best case for my pc)
@@ -91,18 +90,11 @@ nbatches=5
 #
 # A simulation seed (this goes to the report file name)
 #
-
-# seq vs par, trivial case
 seed=0
-
-#seed=1
-
-# online demonstration (pe outputs)
-#seed=42
 
 #
 # The number of PyTorch inter and intra op threads (see https://docs.pytorch.org/docs/stable/notes/cpu_threading_torchscript_inference.html)
-# (set a huge value, e.g., 1000, to adjust to the max possible number supported in your PC)
+# (set a huge value, e.g., 1000, to adjust to the max possible number)
 #
 inter_threads=2
 intra_threads=2
