@@ -13,6 +13,7 @@ python scripts/data_proc/eval_pe.py reports/ResNet18/exp-batches-rtl/sequential/
 SIGNAL = {
     "IN_A":  0,
     "IN_B":  1,
+    "OUT_B": 3,
     "OUT_C": 4,
     "SIG_PROPAG": 5,
     "SIG_VALID":  6,

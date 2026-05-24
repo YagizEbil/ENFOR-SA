@@ -4,6 +4,6 @@ bin/
 src_no_stream_bkp/
 logs/
 *.bkp
-*.csv
+#*.csv
 *.tsv
 

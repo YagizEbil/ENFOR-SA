@@ -11,8 +11,6 @@
 #source "experiments/experiment_params_demo_rtl.sh"
 #source "experiments/experiment_params_demo_gl.sh"
 
-
-
 #
 # Trivial test
 #
@@ -26,7 +24,6 @@ source "experiments/experiment_params_trivial_rtl.sh"
 #source "experiments/experiment_params_campaign_sw.sh"
 #source "experiments/experiment_params_campaign_rtl.sh"
 #source "experiments/experiment_params_campaign_gl.sh"
-
 
 
 # backups

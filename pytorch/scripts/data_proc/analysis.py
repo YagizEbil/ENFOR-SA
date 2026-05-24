@@ -280,14 +280,14 @@ AREA="."
 #
 #
 #
-EXPERIMENT_SEQ="exp-rtl-all-toy-inputs-v1"
-EXPERIMENT_PAR="exp-rtl-all-toy-inputs-v1"
+#EXPERIMENT_SEQ="exp-rtl-all-toy-inputs-v1"
+#EXPERIMENT_PAR="exp-rtl-all-toy-inputs-v1"
 
 #EXPERIMENT_SEQ="ws-camp-sw"
 #EXPERIMENT_PAR="ws-camp-sw"
 
-EXPERIMENT_SEQ="ws-camp-rtl"
-EXPERIMENT_PAR="ws-camp-rtl"
+#EXPERIMENT_SEQ="ws-camp-rtl"
+#EXPERIMENT_PAR="ws-camp-rtl"
 
 #EXPERIMENT_SEQ="ws-camp-rtl-accumulators"
 #EXPERIMENT_PAR="ws-camp-rtl-accumulators"
@@ -295,8 +295,8 @@ EXPERIMENT_PAR="ws-camp-rtl"
 #EXPERIMENT_SEQ="ws-camp-rtl-ctrl"
 #EXPERIMENT_PAR="ws-camp-rtl-ctrl"
 
-#EXPERIMENT_SEQ="ws-camp-gl"
-#EXPERIMENT_PAR="ws-camp-gl"
+EXPERIMENT_SEQ="ws-camp-gl"
+EXPERIMENT_PAR="ws-camp-gl"
 
 IS_SW_LOG=False
 

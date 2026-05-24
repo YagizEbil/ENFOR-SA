@@ -93,7 +93,7 @@ nbatches=1
 #
 
 # seq vs par, trivial case
-seed=1
+seed=3
 
 
 #

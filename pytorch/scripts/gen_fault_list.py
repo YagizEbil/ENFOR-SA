@@ -8,15 +8,15 @@ import src.gemmini.gemmini_config as conf
 
 
 # Set this to true to generate fault lists for the systolic array. False to generate SW-only fault lists
-#USE_SA = True # True to generate both USE_SA and GL fault lists
-USE_SA = False # False to generate SW fault lists
+USE_SA = True # True to generate both USE_SA and GL fault lists
+#USE_SA = False # False to generate SW fault lists
 
 
 # For the SA faults, select a Gemmini configuration
 
 # OS configs
 #CONFIG_KEY = "OSDIM4"
-CONFIG_KEY =  "OSDIM8"
+CONFIG_KEY = "OSDIM8"
 #CONFIG_KEY = "OSDIM16"
 #CONFIG_KEY = "OSDIM32"
 #CONFIG_KEY = "OSDIM64"
@@ -42,6 +42,8 @@ if len(sys.argv) < 2:
 
 MODEL = sys.argv[1]
 
+print(f"Generating fault list for {MODEL}, {CONFIG_KEY}")
+
 #MODEL="ResNet18"
 #MODEL="ResNet50"
 #MODEL="ResNeXt101_32X8D"
@@ -64,9 +66,10 @@ TargetModel = importlib.import_module(module_path) # e.g., ResNet18, ResNet50,..
 if USE_SA:
     conf.set_config(CONFIG_KEY)
 
-vit_models = ["deit_tiny", "deit_small", "deit_base",
-              "swin_tiny", "swin_small", "swin_base",
-              "vit_base", "vit_large"]
+vit_models = [
+    "deit_tiny", "deit_small", "deit_base",
+    "swin_tiny", "swin_small", "swin_base",
+    "vit_base", "vit_large"]
 
 VIT = MODEL in vit_models
 
@@ -88,23 +91,24 @@ else:
     FL_NAME = "fl_sw.csv"
 
 # let this hard-coded name here for safety reasons (so that we do not overwrite any fault list by accident)
-FL_NAME="dummy_list_to_prevent_accidents.csv"
+#FL_NAME="dummy_list_to_prevent_accidents.csv"
 
 FAULTS_PER_LAYER_HW = 10000
-FAULTS_PER_LAYER_SW = 1000
+FAULTS_PER_LAYER_SW = 10000
 
 HW_TARGETS = [
-            # data signals
-            conf.SIGNAL['IN_A'], 
-            conf.SIGNAL['IN_B'], 
-            conf.SIGNAL['OUT_C'],
-            
-            conf.SIGNAL['C1'], 
-            conf.SIGNAL['C2'],
+    # data signals
+    conf.SIGNAL['IN_A'], 
+    conf.SIGNAL['IN_B'], 
+    conf.SIGNAL['OUT_B'],
+    conf.SIGNAL['OUT_C'],
 
-            # control signals
-            conf.SIGNAL['SIG_PROPAG'], 
-            conf.SIGNAL['SIG_VALID'], 
+    conf.SIGNAL['C1'], 
+    conf.SIGNAL['C2'],
+
+    # control signals
+    conf.SIGNAL['SIG_PROPAG'], 
+    conf.SIGNAL['SIG_VALID'], 
         ]
 
 if VIT:
@@ -142,21 +146,23 @@ def gen_fault_list_sa():
         print(f"Generating fault list for layer {i}")
         if VIT:
             # for ViT, you can specify  depth:int=<>, num_heads:int=<>
-            list_layer = fl.generate_fault_list(i, 
-                                                TargetModel.shape_layer[i][0], 
-                                                TargetModel.shape_layer[i][1], 
-                                                start_tag, 
-                                                possible_targets=HW_TARGETS,
-                                                depth=DEPTH[MODEL], 
-                                                num_heads=NUM_HEADS[MODEL],
-                                                max_faults=FAULTS_PER_LAYER_HW)
+            list_layer = fl.generate_fault_list(
+                i, 
+                TargetModel.shape_layer[i][0], 
+                TargetModel.shape_layer[i][1], 
+                start_tag, 
+                possible_targets=HW_TARGETS,
+                depth=DEPTH[MODEL], 
+                num_heads=NUM_HEADS[MODEL],
+                max_faults=FAULTS_PER_LAYER_HW)
         else:
-            list_layer = fl.generate_fault_list(i, 
-                                    TargetModel.shape_layer[i][0], 
-                                    TargetModel.shape_layer[i][1], 
-                                    start_tag, 
-                                    possible_targets=HW_TARGETS,
-                                    max_faults=FAULTS_PER_LAYER_HW)
+            list_layer = fl.generate_fault_list(
+                i, 
+                TargetModel.shape_layer[i][0], 
+                TargetModel.shape_layer[i][1], 
+                start_tag, 
+                possible_targets=HW_TARGETS,
+                max_faults=FAULTS_PER_LAYER_HW)
 
         start_tag += len(list_layer)
         full_list.extend(list_layer)
@@ -178,12 +184,14 @@ def gen_fault_list_sw():
         if VIT:
             # SW fault lists for VIT (only activations so far, no weights)
 
-            list_layer_0 = fl.generate_fault_list(i, 
-                                                  TargetModel.shape_layer_sw[i], 
-                                                  start_tag,  
-                                                  depth=DEPTH[MODEL], 
-                                                  num_heads=NUM_HEADS[MODEL],
-                                                  max_faults=FAULTS_PER_LAYER_SW)
+            list_layer_0 = fl.generate_fault_list(
+                i, 
+                TargetModel.shape_layer_sw[i], 
+                start_tag,  
+                depth=DEPTH[MODEL], 
+                num_heads=NUM_HEADS[MODEL],
+                max_faults=FAULTS_PER_LAYER_SW)
+
             start_tag += len(list_layer_0)
             full_list.extend(list_layer_0)
 
@@ -191,19 +199,21 @@ def gen_fault_list_sw():
             # SW fault list for CNNs
 
             # weights
-            list_layer_0 = fl.generate_fault_list(i, 
-                                                  TargetModel.shape_layer_sw[i][0], 
-                                                  start_tag,
-                                                  max_faults=FAULTS_PER_LAYER_SW, 
-                                                  target=0)
+            list_layer_0 = fl.generate_fault_list(
+                i, 
+                TargetModel.shape_layer_sw[i][0], 
+                start_tag,
+                max_faults=FAULTS_PER_LAYER_SW, 
+                target=0)
             start_tag += len(list_layer_0)
             
             # activations
-            list_layer_1 = fl.generate_fault_list(i, 
-                                                  TargetModel.shape_layer_sw[i][1], 
-                                                  start_tag, 
-                                                  max_faults=FAULTS_PER_LAYER_SW, 
-                                                  target=1)
+            list_layer_1 = fl.generate_fault_list(
+                i, 
+                TargetModel.shape_layer_sw[i][1], 
+                start_tag, 
+                max_faults=FAULTS_PER_LAYER_SW, 
+                target=1)
             start_tag += len(list_layer_1)
             
             list_layer = list_layer_0 + list_layer_1

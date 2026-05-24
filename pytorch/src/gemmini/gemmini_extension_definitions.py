@@ -126,7 +126,7 @@ def load_extension(config_key):
     This way, if we use a single extension name for each config, we can keep individual cached bindings for each config
     """
     return cpp_extension.load(
-        name=f"{EXT_NAME}_{config_key}", 
+        name=f"{EXT_NAME}_{config_key}_{defs.ENABLE_GL_FAULT_MODEL}", # attach defs.ENABLE_GL_FAULT_MODEL, so we can easily alternate between rtl/gl cases for the same config
         sources=SRC_SER, 
         extra_cflags=FLAGS, 
         extra_ldflags=objectFiles, 
