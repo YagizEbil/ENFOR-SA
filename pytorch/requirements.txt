@@ -2,6 +2,7 @@
 #--index-url https://download.pytorch.org/whl/cpu
 torch
 torchvision
+pybind11
 ninja
 anytree
 numpy
@@ -10,3 +11,4 @@ matplotlib
 pandas
 tabulate
 timm
+

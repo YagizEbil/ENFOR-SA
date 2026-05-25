@@ -166,8 +166,8 @@ class ExperimentSequential(exp.Experiment):
         import time
         from matplotlib.lines import Line2D
 
-        #interval=1.0 # use 1.0 for demonstration
-        interval=0.2
+        #delay=0.7
+        delay=0.2
 
         # loads the fault list rows [0, trials-1]
         base_fault_list = fl.load_fault_list(
@@ -274,7 +274,7 @@ class ExperimentSequential(exp.Experiment):
 
             plt.draw()
             plt.pause(0.004) # required for GUI update
-            time.sleep(interval)
+            time.sleep(delay)
 
         plt.ioff() # turn OFF interactive mode
         plt.show() # blocks until you close the window

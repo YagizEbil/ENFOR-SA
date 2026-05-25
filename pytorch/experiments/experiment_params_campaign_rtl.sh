@@ -13,7 +13,7 @@
 #
 # The experiment report files. Those are placed in the folder reports/$model/$experiment. Each experiment type should be placed in its own folder
 #
-experiment="ws-camp-rtl"
+experiment="ws-camp-rtl-dummy"
 
 #
 # The Gemmini configuration key (only valid for RTL/GL injection). See all available config keys in gemmini_config.py

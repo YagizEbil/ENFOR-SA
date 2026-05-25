@@ -4,6 +4,17 @@ This is the repository for the [ENFOR-SA](https://hal.science/hal-05487559v1) fa
 ## Directions
 
 ### Install the requirements
+
+This tool works on Linux-based systems only. The fundamental system requirements
+are:
+1. Linux-based systems: Tested on Ubuntu 22.04.5 LTS, but it should work with
+newer or similar versions;
+2. Python3: Tested in Python 3.10.14, but should work with similar versions too;
+3. Python3-dev:
+```
+sudo apt install python3-dev build-essential
+```
+
 The required modules are listed in `requirements.txt`. It's advisable to install them in a virtual environment:
 
 ```

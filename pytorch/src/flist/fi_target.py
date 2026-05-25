@@ -93,8 +93,8 @@ target_sw_activation = {
 """ Return a customized fault target. The target layer is passed as simul. paramenter --layer and stored in defs.TARGET_LAYER """
 def setup_target():
     if defs.FI_GEMM:  # RTL injections in selected signal types
-        fault_target = target_inputs
-        #fault_target = target_outputs
+        #fault_target = target_inputs
+        fault_target = target_outputs
         #fault_target = target_control
     else: # SW injections in activations only
         fault_target = target_sw_activation
