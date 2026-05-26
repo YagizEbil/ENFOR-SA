@@ -3,6 +3,7 @@
 torch
 torchvision
 pybind11
+setuptools
 ninja
 anytree
 numpy
