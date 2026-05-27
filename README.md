@@ -47,6 +47,9 @@ This tests basic systolic array operations required for matmuls: input preloadin
 > [!NOTE]
 > The tests take a while to start running when executed for the first time for each new tested array configuration. This is due to the backend compilation of the Gemmini modules and C++ extensions to interface PyTorch with the verilated array model. Latter uses of the same configuration run much faster as PyTorch keeps each compiled configuration cached and no re-compilation is performed (unlsess you change the compilation flags or backend source code).
 
+### Run examples
+We provide examples on how to do basic operations: loading the accelerator module extensions, performing matmuls, preloading and flushing the array, performing fault injections, etc. Those are available in the folder `pythorch/examples`.
+
 ### Validate against HDIFT
 We validate our injection approach by comparing against the [HDFIT](https://intellabs.github.io/HDFIT/) injection procedure. HDFIT relies on verilog code instrumentation for fault injection, and provides ground thruth injection results by instrumenting every assignment directly in verilog code. Run:
 ```

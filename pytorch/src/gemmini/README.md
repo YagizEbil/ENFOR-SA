@@ -151,22 +151,24 @@ fit.setup_target()
 Load the fault list
 ```
 row_start, row_end = 0, 1000 # choose an interval to load over the full list
-fault_list = fl.load_fault_list(<some fault list>.csv, 
-                                (row_start, row_end), 
-                                filters=fit.fault_target,
-                                shuffle=False)
+fault_list = fl.load_fault_list(
+    <some fault list>.csv,
+    (row_start, row_end),
+    filters=fit.fault_target,
+    shuffle=False)
 ```
 
 Iterate over each fault in the list
 ```
 for fault in fault_list:
     # Add the fault before streaming the inputs
-    gemmini_os.add_transient_fault(fault.gemm.target, 
-                                   fault.gemm.pe_row, 
-                                   fault.gemm.pe_col, 
-                                   fault.gemm.bit, 
-                                   0, # reserved 
-                                   fiSilent) 
+    gemmini_os.add_transient_fault(
+        fault.gemm.target,
+        fault.gemm.pe_row, 
+        fault.gemm.pe_col, 
+        fault.gemm.bit,
+        0, # reserved
+        fiSilent)
 
     # Proceed using gemmini_os for matmuls
     ...

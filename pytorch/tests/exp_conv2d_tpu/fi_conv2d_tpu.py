@@ -23,7 +23,8 @@ from src.conv import tile_ops as tile_ops
 from src.gemmini.gemmini_config import *
 from src.gemmini import gemmini_utils as gu
 
-experiment = "experiment-sc26-v1"
+#experiment = "experiment-sc26-v1"
+experiment = "debug"
 
 conv_out_samples_path = f"tests/exp_conv2d_tpu/logs/{experiment}/conv_out_samples"
 trace_file_path = f"tests/exp_conv2d_tpu/logs/{experiment}/trace.tsv"

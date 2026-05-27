@@ -125,7 +125,9 @@ class GemminiOS(Gemmini):
 
 
     # performs matrix multiplication of the two tensors A[conf.DIM][conf.DIM] and B[conf.DIM][conf.DIM] with the Gemmini systolic array, flushes the PEs and returns the results to a tensor
-    def matmul(self, A_tile, B_tile, trans_out=False):
+    def matmul(self, A_tile, B_tile, D_tile=None, trans_out=False):
+        if D_tile is not None:
+            _  = self.preload(D_tile)
         _ = self.stream(A_tile, B_tile)
         _ = self.flush_gemm(self.C_tile, trans_out)
         return self.C_tile

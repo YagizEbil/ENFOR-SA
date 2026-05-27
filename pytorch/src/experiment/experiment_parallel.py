@@ -141,8 +141,6 @@ class ExperimentParallel(exp.Experiment):
                 self.model_faulty.gemm_conv.input_ids = batch_indices[:]
 
         critical_fault_list, critical_faults = self.run_batch_tree_fault_list(batch_id, trials=trials)
-
-        print("Critical faults: ", critical_faults)
         #critical_faults = self.DEBUG_run_batch_tree_fault_list(batch_id, trials=trials)
 
         return critical_faults
@@ -334,9 +332,9 @@ class ExperimentParallel(exp.Experiment):
             else self.model_golden.batch_top1_accuracy
 
         # [Tree info]
-        #print(f"     + Visited nodes:   {visited_nodes}")
-        #print(f"     + Reached leaves:  {reached_leaves}")
-        #print(f"     + Critical leaves: {critical_faults}")
+        print(f"     + Visited nodes:   {visited_nodes}")
+        print(f"     + Reached leaves:  {reached_leaves}")
+        print(f"     + Critical leaves: {critical_faults}")
 
         self.batch_logger.dump_item(
             logger.StatsPerBatchParallel(

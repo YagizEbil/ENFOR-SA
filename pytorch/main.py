@@ -28,6 +28,7 @@ def init():
     torch.cuda.manual_seed(defs.SEED)
     dataloader.load_dataset_imagenet()
 
+
 def main():
     init()
 

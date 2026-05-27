@@ -24,7 +24,7 @@ experiment="ws-trivial-rtl"
 
 # OS configs
 #gemmini_config_key="OSDIM4"
-#gemmini_config_key="OSDIM8"
+gemmini_config_key="OSDIM8"
 #gemmini_config_key="OSDIM16"
 #gemmini_config_key="OSDIM32"
 #gemmini_config_key="OSDIM64"
@@ -40,7 +40,7 @@ experiment="ws-trivial-rtl"
 #gemmini_config_key="OSDIM64_HDFIT"
 
 # WS configs
-gemmini_config_key="WSDIM4"
+#gemmini_config_key="WSDIM4"
 #gemmini_config_key="WSDIM8"
 
 #
@@ -64,10 +64,10 @@ sim_alias="sim-xyz"
 # RTL or Gate-level MAC unit fault list - this can also be used for RTL
 
 # fault list for the 4x4 OS systolic array
-fault_list="fl_os_dim_4.csv"
+#fault_list="fl_os_dim_4.csv"
 
 # fault list for the 8x8 OS systolic array
-#fault_list="fl_os_dim_8.csv"
+fault_list="fl_os_dim_8.csv"
 
 # SW injection
 #fault_list="fl_sw.csv"
