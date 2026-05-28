@@ -57,7 +57,6 @@ class ExperimentSequential(exp.Experiment):
 
             self.model_golden.calibrate = False
             self.model_faulty.calibrate = False
-        
         else:
             """
             print("Running new batch. Indices:")

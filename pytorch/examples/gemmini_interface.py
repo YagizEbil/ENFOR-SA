@@ -1,6 +1,3 @@
-#
-# Gemmini *host* performance tests
-#
 import sys
 import os
 import torch
@@ -69,7 +66,8 @@ tested_configs = [
     "OSDIM32",
     "OSDIM64",
     "WSDIM4",
-    "WSDIM8"
+    "WSDIM8",
+    "WSDIM64"
 ]
 
 for CONFIG_KEY in tested_configs:
