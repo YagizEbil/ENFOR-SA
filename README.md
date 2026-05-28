@@ -51,15 +51,15 @@ This tests basic systolic array operations required for matmuls: input preloadin
 We provide examples on how to do basic operations: loading the accelerator module extensions, performing matmuls, preloading and flushing the array's PEs, performing fault injections, etc. Those are available in the folder `pytorch/examples`.
 
 ```
-python tests/device_load.py
-python tests/matmul_os.py
-python tests/matmul_ws.py
-python tests/matmul_with_faults.py
-python tests/preload_flush_os.py
-python tests/gemmini_interface.py
+python examples/device_load.py
+python examples/matmul_os.py
+python examples/matmul_ws.py
+python examples/matmul_with_faults.py
+python examples/preload_flush_os.py
+python examples/gemmini_interface.py
 ```
 
-### [Optional] Validate against HDIFT (optional)
+### [Optional] Validate against HDIFT
 We validate our injection approach by comparing against the [HDFIT](https://intellabs.github.io/HDFIT/) injection procedure. HDFIT relies on verilog code instrumentation for fault injection, and provides ground thruth injection results by instrumenting every assignment directly in verilog code. Run:
 ```
 python tests/test_hdfit.py
@@ -93,7 +93,7 @@ Follow the examples of experiment scripts already provided (e.g.,[`pytorch/exper
 10. `$seed`: Seed used to select random inputs for injection.
 
 > [!WARNING]
-> In the experiment file, the selected fault list must align with the required fault injection abstraction level. For example, for Gemmini injection, set `fault_list=fl_os_dim_8.csv`. For SW injection, set `fault_list=fl_sw.csv`. Selecting the wrong fault list leads to simulation crashes or at least completely wrong results.
+> In the experiment file, the selected fault list must align with the required fault injection abstraction level and systolic array configuration. For example, for Gemmini OSDIM8 injection, set `fault_list=fl_os_dim_8.csv`. For SW injection, set `fault_list=fl_sw.csv`. Selecting the wrong fault list leads to simulation crashes or at least completely wrong results.
 
 ### Selecting the fault injection targets
 RTL injection can target any registers in the systolic array. This includes:
